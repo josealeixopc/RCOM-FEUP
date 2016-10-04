@@ -19,6 +19,8 @@ int main(int argc, char** argv)
     struct termios oldtio,newtio;
     char buf[255];
 
+	unsigned char UA[5];
+
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
   	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
@@ -49,19 +51,17 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 1;   /* blocking read until 5 chars received */
+    newtio.c_cc[VTIME]    = 2;   /* unblocks if after 2 seconds there is no more input */
+    newtio.c_cc[VMIN]     = 1;   /* blocks until it receives at least 1*/
 
+	/* 
 
-
-  /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
     leitura do(s) próximo(s) caracter(es)
-  */
 
+  	*/
 
-
-    tcflush(fd, TCIOFLUSH);
+    tcflush(fd, TCIOFLUSH);	// flush do buffer
 
     if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
       perror("tcsetattr");
@@ -70,30 +70,36 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
- char letter[255];
-int counter =0;
-    while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf,1);  /* returns after 5 chars have been input */
-      buf[res]=0;
-      letter[counter] = buf[0];	               /* so we can printf... */
-      printf("buf value:%s\n", buf);
-      if (buf[0]=='\0') STOP=TRUE;
-      counter+=1;
-    }
-letter[counter] = 0;
-write(fd, letter, strlen(letter)+1);
-
-sleep(3);
-printf("%s \n" ,letter);
-
+ 	char letter[255];
+	int counter =0;
 
 
   /* 
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
   */
 
+    while (STOP==FALSE) {       /* loop for input */
+     	
+		res = read(fd,UA,5); // reads the flag value
+
+		printf ("%d bytes received\n", res);	
+
+    	if (res > 0)
+			STOP=TRUE;	//end cycle
+    }
+	
+	printf ("0x%x , 0x%x\n", UA[0], UA[1]);
+
+	sleep(2);
 
 
+	res = write(fd, UA, 5);
+
+	sleep(2);
+
+	printf("%d bytes written\n", res);
+
+	
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
     return 0;
