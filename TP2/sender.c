@@ -5,12 +5,19 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <math.h>
 
 #define BAUDRATE B38400
 #define MODEMDEVICE "/dev/ttyS1"
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
+#define FLAG 0x7e
+#define A 0x03
+#define C_SET 0x03
+
+#define DEBUG 1
+
 
 volatile int STOP=FALSE;
 
@@ -18,7 +25,14 @@ int main(int argc, char** argv)
 {
     int fd,c, res;
     struct termios oldtio,newtio;
-    char buf[255];
+    char buf[5];
+	unsigned char SET[5];
+	SET[0] = FLAG;
+	SET[1] = A;
+	SET[2] = C_SET;
+	SET[3] = A^C_SET;
+	SET[4] = FLAG;
+
     int i, sum = 0, speed = 0;
     
     if ( (argc < 2) || 
@@ -51,14 +65,14 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 1;   /* blocking read until 5 chars received */
+    newtio.c_cc[VTIME]    = 3;   /* inter-character timer unused */
+    newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
 
 
 
   /* 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) próximo(s) caracter(es)
+    leitura do(s) prÃ³ximo(s) caracter(es)
   */
 
 
@@ -74,42 +88,71 @@ int main(int argc, char** argv)
 
 
 
-  	gets(buf);
-	int num = strlen(buf);   
-	
-    res = write(fd,buf,num+1);   
-    printf("%d bytes written\n", res);
+  //	gets(buf); 
+	int tries = 3; //number of tries to receive feedback
+
+	while(tries)
+	{
+		res = write(fd,SET,5);	// writes the flags
+
+		if(DEBUG)
+			printf ("%d bytes written.\n", res);
+
+
+		sleep(3);	// waits 3 seconds (use SIGALARM?)
+
+		res = read(fd,buf,5);	// read feedback
+		
+		if(res >= 1)	
+			break;
+		else 
+			printf("No feedback!\n");
+
+		
+		if(DEBUG)		
+			printf ("I'm inside the loop!\n");
+
+		tries--;
+
+	}
+
+	if(DEBUG)
+		printf("I'm outside the feedback loop!\n");
+
+	printf ("%d bytes received.\n", res);
+     
+    	printf("0x%x\n", buf[0]);
  
 
   /* 
     O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
-    o indicado no guião 
+    o indicado no guiÃ£o 
   */
 
 	sleep(2);
-
+/*
    char letter[255];
 int counter =0;
-    while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf,1);  /* returns after 5 chars have been input */
+    while (STOP==FALSE) {   
+      res = read(fd,buf,1);  
       buf[res]=0;
-      letter[counter] = buf[0];	               /* so we can printf... */
+      letter[counter] = buf[0];	             
       printf("buf value:%s\n", buf);
       if (buf[0]=='\0') STOP=TRUE;
       counter+=1;
     }
 letter[counter] = 0;
 printf("%s \n" ,letter);
+*/
 
     if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
       perror("tcsetattr");
       exit(-1);
     }
 
-	
+
 
 
     close(fd);
     return 0;
 }
-
