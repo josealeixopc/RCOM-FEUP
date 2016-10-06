@@ -30,7 +30,7 @@ int verifySET(unsigned char* SET)
 		return 0;
 
 	return 1;
-}
+}git help
 
 int main(int argc, char** argv)
 {
