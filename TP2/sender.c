@@ -7,17 +7,14 @@
 #include <stdio.h>
 #include <math.h>
 
-#define BAUDRATE B38400
-#define MODEMDEVICE "/dev/ttyS1"
-#define _POSIX_SOURCE 1 /* POSIX compliant source */
-#define FALSE 0
-#define TRUE 1
-#define FLAG 0x7e
-#define A 0x03
-#define C_SET 0x03
+#include "utils.h"
 
 #define DEBUG 1
 
+int verifyUA(unsigned char* UA)
+{
+	return 1;
+}
 
 volatile int STOP=FALSE;
 
@@ -26,6 +23,7 @@ int main(int argc, char** argv)
     int fd,c, res;
     struct termios oldtio,newtio;
     char buf[5];
+
 	unsigned char SET[5];
 	SET[0] = FLAG;
 	SET[1] = A;

@@ -6,12 +6,31 @@
 #include <termios.h>
 #include <stdio.h>
 
-#define BAUDRATE B38400
-#define _POSIX_SOURCE 1 /* POSIX compliant source */
-#define FALSE 0
-#define TRUE 1
+#include "utils.h"
+
+#define DEBUG 1
 
 volatile int STOP=FALSE;
+
+int verifySET(unsigned char* SET)
+{
+	if (SET[0] != FLAG)
+		return 0;
+
+	if (SET[1] != A_SND)
+		return 0;
+
+	if (SET[2] != C_SET)
+		return 0;
+
+	if (SET[3] != A_SND ^ C_SET)
+		return 0;
+
+	if (SET[4] != FLAF)
+		return 0;
+
+	return 1;
+}
 
 int main(int argc, char** argv)
 {
@@ -20,6 +39,11 @@ int main(int argc, char** argv)
     char buf[255];
 
 	unsigned char UA[5];
+	UA[0] = FLAG;
+	UA[1] = A;
+	UA[2] = C_UA;
+	UA[3] = A^C_UA;
+	UA[4] = FLAG;
 
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
@@ -74,21 +98,27 @@ int main(int argc, char** argv)
 	int counter =0;
 
 
-  /* 
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
-  */
+	/*Receive command to start sync*/
+
+	char SET[255];
 
     while (STOP==FALSE) {       /* loop for input */
      	
-		res = read(fd,UA,5); // reads the flag value
+		res = read(fd,SET,5); // reads the flag value
 
-		printf ("%d bytes received\n", res);	
+		if(DEBUG)
+		{
+			printf ("%d bytes received\n", res);
+			printf ("SET: 0x%x , 0x%x, 0x%x, 0x%x, 0x%x\n", SET[0], SET[1], SET[2], SET[3], SET[4]);
+		}	
 
-    	if (res > 0)
+    	if (verifySET(SET))
 			STOP=TRUE;	//end cycle
-    }
 	
-	printf ("0x%x , 0x%x\n", UA[0], UA[1]);
+		if (DEBUG)
+			printf ("verifySET = %d\n", verifySET(SET));
+    }
+		
 
 	sleep(2);
 
