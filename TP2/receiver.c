@@ -1,4 +1,4 @@
-/*Non-Canonical Input Processing*/
+	/*Non-Canonical Input Processing*/
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -26,11 +26,11 @@ int verifySET(unsigned char* SET)
 	if (SET[3] != A_SND ^ C_SET)
 		return 0;
 
-	if (SET[4] != FLAF)
+	if (SET[4] != FLAG)
 		return 0;
 
 	return 1;
-}git help
+}
 
 int main(int argc, char** argv)
 {
@@ -38,12 +38,7 @@ int main(int argc, char** argv)
     struct termios oldtio,newtio;
     char buf[255];
 
-	unsigned char UA[5];
-	UA[0] = FLAG;
-	UA[1] = A;
-	UA[2] = C_UA;
-	UA[3] = A^C_UA;
-	UA[4] = FLAG;
+	unsigned char UA[5] = {FLAG, A_SND, C_UA, A_SND^C_UA, FLAG};
 
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
@@ -75,13 +70,13 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 2;   /* unblocks if after 2 seconds there is no more input */
-    newtio.c_cc[VMIN]     = 1;   /* blocks until it receives at least 1*/
+    newtio.c_cc[VTIME]    = 0;
+    newtio.c_cc[VMIN]     = 0;
 
 	/* 
 
     VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) próximo(s) caracter(es)
+    leitura do(s) prï¿½ximo(s) caracter(es)
 
   	*/
 
