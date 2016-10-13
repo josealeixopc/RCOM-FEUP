@@ -70,7 +70,13 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 0;
+	/* This is a pure timed read. If data are available in the input queue, it's transferred to the caller's buffer up to a maximum of nbytes, 
+	and returned immediately to the caller. Otherwise the driver blocks until data arrives, or when VTIME tenths expire from the start of the call. 
+	If the timer expires without data, zero is returned. A single byte is sufficient to satisfy this read call, but if more is available in the input queue, 
+	it's returned to the caller. Note that this is an overall timer, not an intercharacter one.  */
+
+	/* VTIME IS IN TENTHS OF A SECOND*/
+    newtio.c_cc[VTIME]    = 50;	// 0 (use cycle) or 10 seconds (use timed read)
     newtio.c_cc[VMIN]     = 0;
 
 	/* 
@@ -89,42 +95,58 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
- 	char letter[255];
-	int counter =0;
-
-
 	/*Receive command to start sync*/
 
-	char SET[255];
+	unsigned char receivedSET[5];	// array to store SET bytes
 
-    while (STOP==FALSE) {       /* loop for input */
+	//TIMED READ
+
+	res = read(fd,receivedSET, sizeof(receivedSET));
+
+	if (res == 0) // no read for VTIME seconds
+	{
+		printf("ERROR: No signal was sent.\n");
+		exit(-1);
+	}
+
+	//END OF TIMED READ
+
+	/* CHOOSE CYCLE OR TIMED READ
+	//CYCLE
+    while (STOP==FALSE)  // loop for input
+	{      
      	
-		res = read(fd,SET,5); // reads the flag value
+		res = read(fd,receivedSET, sizeof(receivedSET)); // reads the flag value
 
 		if(DEBUG)
 		{
 			printf ("%d bytes received\n", res);
-			printf ("SET: 0x%x , 0x%x, 0x%x, 0x%x, 0x%x\n", SET[0], SET[1], SET[2], SET[3], SET[4]);
+			printf ("SET: 0x%x , 0x%x, 0x%x, 0x%x, 0x%x\n", receivedSET[0], receivedSET[1], receivedSET[2], receivedSET[3], receivedSET[4]);
 		}	
 
-    	if (verifySET(SET))
-			STOP=TRUE;	//end cycle
-	
-		if (DEBUG)
-			printf ("verifySET = %d\n", verifySET(SET));
-    }
-		
+    	if (res >= 1)
+		{
+			if (DEBUG)
+				printf ("verifySET = %d\n", verifySET(receivedSET));
+
+			if(verifySET(receivedSET))
+			{
+				res = write(fd, UA, 5); // send response
+				STOP=TRUE;	//end cycle
+
+				if(DEBUG)
+				{
+					printf("Sent response UA.\n");
+					printf("%d bytes written\n", res);
+				}
+			}
+    	}
+	}
+	//END OF CYCLE
+	*/
 
 	sleep(2);
 
-
-	res = write(fd, UA, 5);
-
-	sleep(2);
-
-	printf("%d bytes written\n", res);
-
-	
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
     return 0;

@@ -50,7 +50,6 @@ int main(int argc, char **argv)
 {
   int fd, c, res;
   struct termios oldtio, newtio;
-  char buf[5];
 
   unsigned char SET[5] = {FLAG, A_SND, C_SET, A_SND ^ C_SET, FLAG};
 
@@ -117,8 +116,10 @@ int main(int argc, char **argv)
 
   (void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
 
+  unsigned char receivedUA[5];
+
   //Cycle that sends the SET bytes, while waiting for UA
-  while (numOfTries != MAX_TRIES)
+  while (numOfTries <= MAX_TRIES)
   {
     if(flag)
     {
@@ -133,7 +134,7 @@ int main(int argc, char **argv)
       flag = 0; /* doesn't resend a signal until an alarm is handled */
     }
 
-    res = read(fd, buf, sizeof(buf)); // read feedback
+    res = read(fd, receivedUA, sizeof(receivedUA)); // read feedback
 
     if (res >= 1) // if it read something
       break;
@@ -145,12 +146,13 @@ int main(int argc, char **argv)
     exit(-1);
   }
 
+
   if (DEBUG)
   {
     printf("I'm outside the feedback loop!\n");
     printf("%d bytes received: ", res);
-    printf("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n", buf[0], buf[1], buf[2], buf[3], buf[4]);
-    printf("VerifyUA: %d", verifyUA(buf));
+    printf("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n", receivedUA[0], receivedUA[1], receivedUA[2], receivedUA[3], receivedUA[4]);
+    printf("VerifyUA: %d", verifyUA(receivedUA));
   }
 
 
