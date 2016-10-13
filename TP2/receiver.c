@@ -164,9 +164,14 @@ int main(int argc, char** argv)
 	//END OF CYCLE
 	*/
 
-	sleep(2);
+	sleep(2); 
 
-    tcsetattr(fd,TCSANOW,&oldtio);
+    if (tcsetattr(fd, TCSANOW, &oldtio) == -1)
+  	{
+		perror("tcsetattr");
+		exit(-1);
+  	}
+	  
     close(fd);
     return 0;
 }

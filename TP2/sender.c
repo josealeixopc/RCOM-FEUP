@@ -151,13 +151,20 @@ int main(int argc, char **argv)
     printf("ERROR: bad UA received.\n");
     exit(-1);
   }
+  else
+  {
+    if(DEBUG)
+    {
+      printf("Received valid UA.\n");
+    }
+  }
 
   if (DEBUG)
   {
     printf("I'm outside the feedback loop!\n");
     printf("%d bytes received: ", res);
     printf("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n", receivedUA[0], receivedUA[1], receivedUA[2], receivedUA[3], receivedUA[4]);
-    printf("VerifyUA: %d", verifyUA(receivedUA));
+    printf("badUA: %d\n", badUA(receivedUA));
   }
 
 
