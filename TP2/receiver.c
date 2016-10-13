@@ -97,7 +97,7 @@ int main(int argc, char** argv)
 	unsigned char receivedSET[5];	// array to store SET bytes
 
 	//TIMED READ
-
+	/*
 	res = read(fd,receivedSET, sizeof(receivedSET));
 
 	if (res == 0) // no read for VTIME seconds
@@ -124,10 +124,9 @@ int main(int argc, char** argv)
 			exit(-1);
 		}
 	}
-
+	*/
 	//END OF TIMED READ
 
-	/* CHOOSE CYCLE OR TIMED READ
 	//CYCLE
     while (STOP==FALSE)  // loop for input
 	{      
@@ -145,7 +144,7 @@ int main(int argc, char** argv)
 			if (DEBUG)
 				printf ("verifySET = %d\n", verifySET(receivedSET));
 
-			if(verifySET(receivedSET))
+			if(!badSET(receivedSET))
 			{
 				res = write(fd, UA, 5); // send response
 				STOP=TRUE;	//end cycle
@@ -159,7 +158,6 @@ int main(int argc, char** argv)
     	}
 	}
 	//END OF CYCLE
-	*/
 
 	sleep(2); 
 
