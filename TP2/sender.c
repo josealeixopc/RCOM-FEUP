@@ -141,13 +141,13 @@ int main(int argc, char **argv)
       break;
   }
 
-  if(numOfTries == MAX_TRIES)
+  if(numOfTries == MAX_TRIES || res == 0)
   {
     printf("ERROR: No response from receiver.\n");
     exit(-1);
   }
 
-  if(badUA(receivedUA))
+  if(res != 0 && badUA(receivedUA))
   {
     printf("ERROR: bad UA received.\n");
     exit(-1);

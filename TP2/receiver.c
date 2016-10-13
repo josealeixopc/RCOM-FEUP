@@ -70,13 +70,9 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-	/* This is a pure timed read. If data are available in the input queue, it's transferred to the caller's buffer up to a maximum of nbytes, 
-	and returned immediately to the caller. Otherwise the driver blocks until data arrives, or when VTIME tenths expire from the start of the call. 
-	If the timer expires without data, zero is returned. A single byte is sufficient to satisfy this read call, but if more is available in the input queue, 
-	it's returned to the caller. Note that this is an overall timer, not an intercharacter one.  */
-
+	
 	/* VTIME IS IN TENTHS OF A SECOND*/
-    newtio.c_cc[VTIME]    = 50;	// 0 (use cycle) or 10 seconds (use timed read)
+    newtio.c_cc[VTIME]    = 0;
     newtio.c_cc[VMIN]     = 0;
 
 	/* 
