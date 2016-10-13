@@ -93,7 +93,8 @@ int main(int argc, char** argv)
       exit(-1);
     }
 
-    printf("New termios structure set\n");
+	if(DEBUG)
+    	printf("New termios structure set\n");
 
 	/*Receive command to start sync*/
 
@@ -168,10 +169,10 @@ int main(int argc, char** argv)
 
     if (tcsetattr(fd, TCSANOW, &oldtio) == -1)
   	{
-		perror("tcsetattr");
-		exit(-1);
-  	}
-	  
+    perror("tcsetattr");
+    exit(-1);
+    }
+
     close(fd);
     return 0;
 }

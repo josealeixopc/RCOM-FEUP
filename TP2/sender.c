@@ -112,7 +112,8 @@ int main(int argc, char **argv)
     exit(-1);
   }
 
-  printf("New termios structure set\n");
+  if(DEBUG)
+    printf("New termios structure set\n");
 
   (void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
 
