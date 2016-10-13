@@ -12,24 +12,24 @@
 
 volatile int STOP=FALSE;
 
-int verifySET(unsigned char* SET)
+int badSET(unsigned char* SET)
 {
 	if (SET[0] != FLAG)
-		return 0;
+		return -1;
 
 	if (SET[1] != A_SND)
-		return 0;
+		return -2;
 
 	if (SET[2] != C_SET)
-		return 0;
+		return -3;
 
-	if (SET[3] != A_SND ^ C_SET)
-		return 0;
+	if (SET[3] != (A_SND ^ C_SET))
+		return -4;
 
 	if (SET[4] != FLAG)
-		return 0;
+		return -5;
 
-	return 1;
+	return 0;
 }
 
 int main(int argc, char** argv)
@@ -111,7 +111,7 @@ int main(int argc, char** argv)
 
 	else
 	{
-		if(verifySET(receivedSET))
+		if(!badSET(receivedSET))
 		{
 			res = write(fd, UA, 5); // send response
 
@@ -123,7 +123,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			printf ("ERROR: SET received doesn't match standar SET.\n'");
+			printf ("ERROR: SET received doesn't match standard SET.\n'");
 			exit(-1);
 		}
 	}
@@ -164,7 +164,7 @@ int main(int argc, char** argv)
 	//END OF CYCLE
 	*/
 
-	
+	sleep(2);
 
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);

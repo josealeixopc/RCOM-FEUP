@@ -14,24 +14,24 @@
 int flag = 1; /* 1 if an alarm has not been set and a SET needs to be sent. 0 if it's waiting for a response*/
 int numOfTries = 1; /* number tries made to send SET */
 
-int verifyUA(unsigned char *SET)
+int badUA(unsigned char *UA)
 {
-  if (SET[0] != FLAG)
-    return 0;
+  if (UA[0] != FLAG)
+    return -1;
 
-  if (SET[1] != A_SND)
-    return 0;
+  if (UA[1] != A_SND)
+    return -2;
 
-  if (SET[2] != C_UA)
-    return 0;
+  if (UA[2] != C_UA)
+    return -3;
 
-  if (SET[3] != A_SND ^ C_UA)
-    return 0;
+  if (UA[3] != (A_SND^C_UA))
+    return -4;
 
-  if (SET[4] != FLAG)
-    return 0;
+  if (UA[4] != FLAG)
+    return -5;
 
-  return 1;
+  return 0;
 }
 
 int alarmHandler()
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
   int fd, c, res;
   struct termios oldtio, newtio;
 
-  unsigned char SET[5] = {FLAG, A_SND, C_SET, A_SND ^ C_SET, FLAG};
+  unsigned char SET[5] = {FLAG, A_SND, C_SET, A_SND^C_SET, FLAG};
 
   int i, sum = 0, speed = 0;
 
@@ -146,6 +146,11 @@ int main(int argc, char **argv)
     exit(-1);
   }
 
+  if(badUA(receivedUA))
+  {
+    printf("ERROR: bad UA received.\n");
+    exit(-1);
+  }
 
   if (DEBUG)
   {
