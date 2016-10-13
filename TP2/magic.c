@@ -45,31 +45,35 @@ void receive_set(int fd){
 
 	//TIMED READ
 
-	int res = read(fd,receivedSET, sizeof(receivedSET));
+		//CYCLE
+    while (STOP==FALSE)  // loop for input
+	{      
+     	
+		int res = read(fd,receivedSET, sizeof(receivedSET)); // reads the flag value
 
-	if (res == 0) // no read for VTIME seconds
-	{
-		printf("ERROR: No signal was sent.\n");
-		exit(-1);
-	}
-
-	else
-	{
-		if(!badSET(receivedSET))
+		if(DEBUG)
 		{
-			res = write(fd, linkL.frame, 5); // send response
+			printf ("%d bytes received\n", res);
+			printf ("SET: 0x%x , 0x%x, 0x%x, 0x%x, 0x%x\n", receivedSET[0], receivedSET[1], receivedSET[2], receivedSET[3], receivedSET[4]);
+		}	
 
-			if(DEBUG)
+    	if (res >= 1)
+		{
+			if (DEBUG)
+				printf ("badSET = %d\n", badSET(receivedSET));
+
+			if(!badSET(receivedSET))
 			{
-				printf("Sent response UA.\n");
-				printf("%d bytes written\n", res);
+				res = write(fd, linkL.frame, 5); // send response
+				STOP=TRUE;	//end cycle
+
+				if(DEBUG)
+				{
+					printf("Sent response UA.\n");
+					printf("%d bytes written\n", res);
+				}
 			}
-		}
-		else
-		{
-			printf ("ERROR: SET received doesn't match standard SET.\n'");
-			exit(-1);
-		}
+    	}
 	}
 }
 
