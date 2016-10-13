@@ -109,6 +109,25 @@ int main(int argc, char** argv)
 		exit(-1);
 	}
 
+	else
+	{
+		if(verifySET(receivedSET))
+		{
+			res = write(fd, UA, 5); // send response
+
+			if(DEBUG)
+			{
+				printf("Sent response UA.\n");
+				printf("%d bytes written\n", res);
+			}
+		}
+		else
+		{
+			printf ("ERROR: SET received doesn't match standar SET.\n'");
+			exit(-1);
+		}
+	}
+
 	//END OF TIMED READ
 
 	/* CHOOSE CYCLE OR TIMED READ
@@ -145,7 +164,7 @@ int main(int argc, char** argv)
 	//END OF CYCLE
 	*/
 
-	sleep(2);
+	
 
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
