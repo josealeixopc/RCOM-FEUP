@@ -142,7 +142,7 @@ int main(int argc, char** argv)
     	if (res >= 1)
 		{
 			if (DEBUG)
-				printf ("verifySET = %d\n", verifySET(receivedSET));
+				printf ("badSET = %d\n", badSET(receivedSET));
 
 			if(!badSET(receivedSET))
 			{
