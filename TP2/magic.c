@@ -8,6 +8,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #define TRANSMITTER 1
 #define RECEIVER 0
@@ -15,86 +16,136 @@
 #define RR 0x01
 #define REJ 0x05 //todo mudar isto
 
-#define MAX_SIZE 255
-
 #define DEBUG 1
-
 
 volatile int STOP=FALSE;
 
+int flag = 1; /* 1 if an alarm has not been set and a SET needs to be sent. 0 if it's waiting for a response*/
+int numOfTries = 1; /* number tries made to send SET */
+
+
 struct termios oldtio,newtio;
-
-struct applicationLayer {
-	int fileDescriptor; /*Descritor correspondente à porta série*/
-	int status;	/*TRANSMITTER | RECEIVER*/
-};
-
-struct linkLayer {
-	char port[20]; /*Dispositivo /dev/ttySx, x = 0, 1*/
-	int baudRate;	/*Velocidade de transmissão (no clue) ??!?*/
-	unsigned int sequenceNumber;   /*Número de sequência da trama: 0, 1*/
-	unsigned int timeout;	/*Valor do temporizador: 1 s*/
-	unsigned int numTransmissions; /*Número de tentativas em caso de falha*/
-	char frame[MAX_SIZE];	/*Trama*/
-};
-
 struct applicationLayer appL;
 struct linkLayer linkL;
 
+
+int alarmHandler()
+{
+  if (DEBUG)
+  {
+    printf("handled alarm. Try number: %d\n", numOfTries);
+  }
+  flag = 1;
+  numOfTries++;
+}
+
+
 void receive_set(int fd){
-	printf("do later");
+	unsigned char receivedSET[5];	// array to store SET bytes
+
+	//TIMED READ
+
+		//CYCLE
+    while (STOP==FALSE)  // loop for input
+	{      
+     	
+		int res = read(fd,receivedSET, sizeof(receivedSET)); // reads the flag value
+
+		if(DEBUG)
+		{
+			printf ("%d bytes received\n", res);
+			printf ("SET: 0x%x , 0x%x, 0x%x, 0x%x, 0x%x\n", receivedSET[0], receivedSET[1], receivedSET[2], receivedSET[3], receivedSET[4]);
+		}	
+
+    	if (res >= 1)
+		{
+			if (DEBUG)
+				printf ("badSET = %d\n", badSET(receivedSET));
+
+			if(!badSET(receivedSET))
+			{
+				res = write(fd, linkL.frame, 5); // send response
+				STOP=TRUE;	//end cycle
+
+				if(DEBUG)
+				{
+					printf("Sent response UA.\n");
+					printf("%d bytes written\n", res);
+				}
+			}
+    	}
+	}
 }
 
 int send_cicle(int fd, char * msg){
-	int tries = 3; //number of tries to receive feedback
-	int res;
-	while(tries)
-	{
-		res = write(fd,linkL.frame,5);	// writes the flags
-		if(DEBUG)
-			printf ("%d bytes written.\n", res);
-		sleep(3);	// waits 3 seconds (use SIGALARM?)
-		res = read(fd,msg,5);	// read feedback
-		if(res >= 1)	
-			break;
-		else 
-			printf("No feedback!\n");
+	
+  (void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
 
-		
-		if(DEBUG)		
-			printf ("I'm inside the loop!\n");
+  int res;
 
-		tries--;
+  //Cycle that sends the SET bytes, while waiting for UA
+  while (numOfTries <= MAX_TRIES)
+  {
+    if(flag)
+    {
+      res = write(fd, linkL.frame, sizeof(linkL.frame)); // writes the flags
 
-	}
+      if(DEBUG)
+      {
+        printf("%d bytes written.\n", res);
+      }
 
-	if(DEBUG)
-		printf("I'm outside the feedback loop!\n");
+      alarm(3); /* waits 3 seconds, then activates a SIGALRM */
+      flag = 0; /* doesn't resend a signal until an alarm is handled */
+    }
 
-	printf ("%d bytes received.\n", res);
-	return res;
+    res = read(fd, msg, sizeof(msg)); // read feedback
+
+    if (res >= 1) // if it read something
+      break;
+  }
+
+  if(numOfTries == MAX_TRIES)
+  {
+    printf("ERROR: No response from receiver.\n");
+    return (-1);
+  }
 }
 
 
 void send_set(int fd){
 	int tries = 3; //number of tries to receive feedback
 	int res;
-	char * buf = (char *) malloc(5*sizeof(char));
-	res = send_cicle(fd, buf);
-    
+	char * msg = (char *) malloc(5*sizeof(char));
+	res = send_cicle(fd, msg);
+    if(res == -1) {
+    	printf("deu erro a enviar!");
+    	return;
+    }
     //todo ver isto dp
     
-	if(buf[2] == C_UA && res >=1){
-		printf("success!\n");
-		linkL.frame[2] = RR;
-	}
-	else {
-		printf("error\n");
-	}
+	if(badUA(msg)) {
+    printf("ERROR: bad UA received.\n");
+    exit(-1);
+  }
+  else
+  {
+    if(DEBUG)
+    {
+      printf("Received valid UA.\n");
+    }
+  }
 
-	printf("0x%x\n", buf[2]);
+  if (DEBUG)
+  {
+    printf("I'm outside the feedback loop!\n");
+    printf("%d bytes received: ", res);
+    printf("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n", msg[0], msg[1], msg[2], msg[3], msg[4]);
+    printf("badUA: %d\n", badUA(msg));
+  }
 
-	free(buf);
+
+	free(msg);
 }
 
 
@@ -134,7 +185,7 @@ int llopen(){
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 3;   /* inter-character timer unused */
+    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
     newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
 
 
@@ -204,8 +255,8 @@ int main(int argc, char** argv)
     exit(1);
  	}
 
- 	if(argv[2] == 't') appL.status = TRANSMITTER; //mudar dp
- 	else if(arv[2] == 'r') appL.status = RECEIVER;
+ 	if(strcmp(argv[2],"t") == 0) appL.status = TRANSMITTER; //mudar dp
+ 	else if(strcmp(argv[2],"r") == 0) appL.status = RECEIVER;
  	else{
  		printf("2nd argument must be t(transmitter) our r (receiver)");
  		exit(2);
