@@ -21,5 +21,6 @@
 
 #define MAX_TRIES 3
 
-
+#define ESCAPE 0x7d
+#define XOR_BYTE 0x20
 
