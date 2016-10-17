@@ -41,11 +41,10 @@ int alarmHandler()
 
 
 void receive_set(int fd){
-	unsigned char receivedSET[5];	// array to store SET bytes
 
-	//TIMED READ
+  	unsigned char receivedSET[5];	// array to store SET bytes
 
-		//CYCLE
+	//CYCLE
     while (STOP==FALSE)  // loop for input
 	{      
      	
@@ -58,21 +57,21 @@ void receive_set(int fd){
 		}	
 
     	if (res >= 1)
-		{
-			if (DEBUG)
-				printf ("badSET = %d\n", badSET(receivedSET));
+		  {
+        if (DEBUG)
+          printf ("badSET = %d\n", badSET(receivedSET));
 
-			if(!badSET(receivedSET))
-			{
-				res = write(fd, linkL.frame, 5); // send response
-				STOP=TRUE;	//end cycle
+        if(!badSET(receivedSET))
+        {
+          res = write(fd, linkL.frame, 5); // send response
+          STOP=TRUE;	//end cycle
 
-				if(DEBUG)
-				{
-					printf("Sent response UA.\n");
-					printf("%d bytes written\n", res);
-				}
-			}
+          if(DEBUG)
+          {
+            printf("Sent response UA.\n");
+            printf("%d bytes written\n", res);
+          }
+        }
     	}
 	}
 }
@@ -205,8 +204,10 @@ int llopen(){
 	
 	strcpy(linkL.frame, trama_su);
 	
-	if(appL.status == TRANSMITTER)send_set(fd);
-	else receive_set(fd);
+	if(appL.status == TRANSMITTER)
+		send_set(fd);
+	else 
+		receive_set(fd);
 	
 	return fd;
 }
@@ -251,7 +252,7 @@ int main(int argc, char** argv)
     if ((argc < 3) ||
       ((strcmp("/dev/ttyS0", argv[1]) != 0) &&
        (strcmp("/dev/ttyS1", argv[1]) != 0))){
-    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+    printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1 <t or r>\n");
     exit(1);
  	}
 
