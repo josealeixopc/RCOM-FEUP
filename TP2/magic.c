@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
 
 #define TRANSMITTER 1
 #define RECEIVER 0
@@ -63,7 +64,7 @@ void receive_set(int fd){
 
         if(!badSET(receivedSET))
         {
-          res = write(fd, UA, 5); // send response
+          res = write(fd, linkL.frame, sizeof(linkL.frame)); // send response
           STOP=TRUE;	//end cycle
 
           if(DEBUG)
@@ -113,22 +114,28 @@ int send_cicle(int fd, char * msg){
   }
 
   sleep(2);
+
+  return res;
 }
 
 
 void send_set(int fd){
 	int tries = 3; //number of tries to receive feedback
 	int res;
-	char* msg = SET;
+	char* msg = (unsigned char *) malloc(5*sizeof(unsigned char));;
   
-	res = send_cicle(fd, msg);
+	res = send_cicle(fd, SET);
     if(res == -1) {
     	printf("deu erro a enviar!");
     	return;
     }
     //todo ver isto dp
     
-	if(badUA(msg)) {
+  if (res < 1)
+  {
+    printf("ERROR: no message received.\n");
+  }  
+	else if(badUA(msg)) {
     printf("ERROR: bad UA received.\n");
     exit(-1);
   }
