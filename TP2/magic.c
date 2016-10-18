@@ -29,7 +29,7 @@ struct applicationLayer appL;
 struct linkLayer linkL;
 
 
-int alarmHandler()
+void alarmHandler()
 {
   if (DEBUG)
   {
@@ -63,7 +63,7 @@ void receive_set(int fd){
 
         if(!badSET(receivedSET))
         {
-          res = write(fd, linkL.frame, 5); // send response
+          res = write(fd, UA, 5); // send response
           STOP=TRUE;	//end cycle
 
           if(DEBUG)
@@ -74,6 +74,8 @@ void receive_set(int fd){
         }
     	}
 	}
+
+  sleep(2);
 }
 
 int send_cicle(int fd, char * msg){
@@ -104,18 +106,21 @@ int send_cicle(int fd, char * msg){
       break;
   }
 
-  if(numOfTries == MAX_TRIES)
+  if(numOfTries == MAX_TRIES && res < 1)
   {
     printf("ERROR: No response from receiver.\n");
     return (-1);
   }
+
+  sleep(2);
 }
 
 
 void send_set(int fd){
 	int tries = 3; //number of tries to receive feedback
 	int res;
-	char * msg = (char *) malloc(5*sizeof(char));
+	char* msg = SET;
+  
 	res = send_cicle(fd, msg);
     if(res == -1) {
     	printf("deu erro a enviar!");

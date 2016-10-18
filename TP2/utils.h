@@ -26,6 +26,9 @@
 #define ESCAPE 0x7d
 #define XOR_BYTE 0x20
 
+unsigned char SET[5] = {FLAG, A_SND, C_SET, A_SND^C_SET, FLAG};
+unsigned char UA[5] = {FLAG, A_SND, C_UA, A_SND^C_UA, FLAG};
+
 int badSET(unsigned char* SET)
 {
 	if (SET[0] != FLAG)
