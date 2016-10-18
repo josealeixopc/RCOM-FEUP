@@ -62,6 +62,8 @@ void receive_set(int fd){
         if (DEBUG)
           printf ("badSET = %d\n", badSET(receivedSET));
 
+        
+
         if(!badSET(receivedSET))
         {
           res = write(fd, linkL.frame, sizeof(linkL.frame)); // send response
@@ -73,6 +75,8 @@ void receive_set(int fd){
             printf("%d bytes written\n", res);
           }
         }
+
+        break;
     	}
 	}
 
@@ -94,7 +98,7 @@ int send_cicle(int fd, char * msg){
 
       if(DEBUG)
       {
-        printf("%d bytes written.\n", res);
+        printf("%d bytes written: 0x%x 0x%x \n", res, linkL.frame[0], linkL.frame[1]);
       }
 
       alarm(3); /* waits 3 seconds, then activates a SIGALRM */
@@ -124,7 +128,7 @@ void send_set(int fd){
 	int res;
 	char* msg = (unsigned char *) malloc(5*sizeof(unsigned char));;
   
-	res = send_cicle(fd, SET);
+	res = send_cicle(fd, msg);
     if(res == -1) {
     	printf("deu erro a enviar!");
     	return;
@@ -276,6 +280,11 @@ int main(int argc, char** argv)
  	}
 
 	strcpy(linkL.port, argv[1]);
+
+  if(DEBUG)
+  {
+    printf ("linkL.port in main: %s\n", linkL.port);
+  }
 	
 	
 	int fd = llopen();
