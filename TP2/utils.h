@@ -26,6 +26,9 @@
 #define ESCAPE 0x7d
 #define XOR_BYTE 0x20
 
+unsigned char SET[5] = {FLAG, A_SND, C_SET, A_SND^C_SET, FLAG};
+unsigned char UA[5] = {FLAG, A_SND, C_UA, A_SND^C_UA, FLAG};
+
 int badSET(unsigned char* SET)
 {
 	if (SET[0] != FLAG)
@@ -77,6 +80,6 @@ struct linkLayer {
 	unsigned int sequenceNumber;   /*Número de sequência da trama: 0, 1*/
 	unsigned int timeout;	/*Valor do temporizador: 1 s*/
 	unsigned int numTransmissions; /*Número de tentativas em caso de falha*/
-	char frame[MAX_SIZE];	/*Trama*/
+	unsigned char frame[MAX_SIZE];	/*Trama*/
 };
 

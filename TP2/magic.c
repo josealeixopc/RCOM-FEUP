@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
 
 #define TRANSMITTER 1
 #define RECEIVER 0
@@ -16,7 +17,7 @@
 #define RR 0x01
 #define REJ 0x05 //todo mudar isto
 
-#define DEBUG 1
+#define DEBUG 0
 
 volatile int STOP=FALSE;
 
@@ -29,7 +30,7 @@ struct applicationLayer appL;
 struct linkLayer linkL;
 
 
-int alarmHandler()
+void alarmHandler()
 {
   if (DEBUG)
   {
@@ -61,9 +62,11 @@ void receive_set(int fd){
         if (DEBUG)
           printf ("badSET = %d\n", badSET(receivedSET));
 
+        
+
         if(!badSET(receivedSET))
         {
-          res = write(fd, linkL.frame, 5); // send response
+          res = write(fd, linkL.frame, sizeof(linkL.frame)); // send response
           STOP=TRUE;	//end cycle
 
           if(DEBUG)
@@ -72,11 +75,15 @@ void receive_set(int fd){
             printf("%d bytes written\n", res);
           }
         }
+
+        break;
     	}
 	}
+
+  sleep(2);
 }
 
-int send_cicle(int fd, char * msg){
+int send_cycle(int fd, char * msg){
 	
   (void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
 
@@ -91,7 +98,7 @@ int send_cicle(int fd, char * msg){
 
       if(DEBUG)
       {
-        printf("%d bytes written.\n", res);
+        printf("%d bytes written to receiver: 0x%x 0x%x 0x%x 0x%x 0x%x\n", res, linkL.frame[0], linkL.frame[1], linkL.frame[2], linkL.frame[3], linkL.frame[4]);
       }
 
       alarm(3); /* waits 3 seconds, then activates a SIGALRM */
@@ -104,26 +111,35 @@ int send_cicle(int fd, char * msg){
       break;
   }
 
-  if(numOfTries == MAX_TRIES)
+  if(numOfTries == MAX_TRIES && res < 1)
   {
     printf("ERROR: No response from receiver.\n");
     return (-1);
   }
+
+  sleep(2);
+
+  return res;
 }
 
 
 void send_set(int fd){
 	int tries = 3; //number of tries to receive feedback
 	int res;
-	char * msg = (char *) malloc(5*sizeof(char));
-	res = send_cicle(fd, msg);
+	char* msg = (unsigned char *) malloc(5*sizeof(unsigned char));;
+  
+	res = send_cycle(fd, msg);
     if(res == -1) {
     	printf("deu erro a enviar!");
     	return;
     }
     //todo ver isto dp
     
-	if(badUA(msg)) {
+  if (res < 1)
+  {
+    printf("ERROR: no message received.\n");
+  }  
+	else if(badUA(msg)) {
     printf("ERROR: bad UA received.\n");
     exit(-1);
   }
@@ -155,11 +171,11 @@ int llopen(){
 	trama_su[0] = FLAG;
 	trama_su[1] = A_SND;
 	trama_su[2] = C_UA;
-	trama_su[3] = A_SND^C_UA;
+	trama_su[3] = (A_SND^C_UA);
 	trama_su[4] = FLAG;
 	if(appL.status == TRANSMITTER){
 		trama_su[2] = C_SET;
-		trama_su[3] = A_SND^C_SET;
+		trama_su[3] = (A_SND^C_SET);
 	}
 
   /*
@@ -200,10 +216,19 @@ int llopen(){
       exit(-1);
     }
 
-    printf("New termios structure set\n");
+    if(DEBUG)
+    {
+      printf("New termios structure set\n");
+    }
 	
-	strcpy(linkL.frame, trama_su);
-	
+	memcpy(linkL.frame, trama_su, sizeof(trama_su));
+
+  if(DEBUG)
+  {
+  printf("trama_su: %x %x %x %x %x %x\n", trama_su[0], trama_su[1], trama_su[2], trama_su[3],trama_su[4], trama_su[5]);
+	printf("frame: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", linkL.frame[0], linkL.frame[1], linkL.frame[2], linkL.frame[3], linkL.frame[4], linkL.frame[5]);
+  }
+
 	if(appL.status == TRANSMITTER)
 		send_set(fd);
 	else 
@@ -218,7 +243,7 @@ void close_set(int fd){
 	char buf[MAX_SIZE];
 	linkL.frame[2] = C_DISC;
 
-	res = send_cicle(fd, buf);
+	res = send_cycle(fd, buf);
 
 	if(buf[2] == C_DISC){
 			printf("read disconnect success");
@@ -264,6 +289,11 @@ int main(int argc, char** argv)
  	}
 
 	strcpy(linkL.port, argv[1]);
+
+  if(DEBUG)
+  {
+    printf ("linkL.port in main: %s\n", linkL.port);
+  }
 	
 	
 	int fd = llopen();
