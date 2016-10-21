@@ -2,6 +2,7 @@
 
 #include <signal.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define BAUDRATE B38400
 #define MODEMDEVICE "/dev/ttyS1"
@@ -18,6 +19,12 @@
 #define C_SET 0x03
 #define C_UA 0x07
 #define C_DISC 0x0b
+
+#define RR_0 0x05
+#define RR_1 0x85
+
+#define REJ_0 0x01
+#define REJ_1 0x81
 
 #define MAX_SIZE 255
 #define MAX_TRIES 3
@@ -83,3 +90,58 @@ struct linkLayer {
 	unsigned char frame[MAX_SIZE];	/*Trama*/
 };
 
+
+// BEGIN OF ARRAY STRUCT
+
+typedef struct {
+  unsigned char* array;
+  size_t used;
+  size_t size;
+} Array;
+
+void initArray(Array *a, size_t initialSize) {
+  a->array = (unsigned char* )malloc(initialSize * sizeof(unsigned char*));
+  a->used = 0;
+  a->size = initialSize;
+
+  if(initialSize <= 0)
+  {
+      printf("ERROR: Array size cannot be 0 or less.\n");
+  }
+}
+
+void insertArray(Array *a, unsigned char element) {
+  if (a->used == a->size) {
+    a->size *= 1;
+    a->array = (unsigned char*)realloc(a->array, a->size * sizeof(unsigned char*));
+  }
+  a->array[a->used++] = element;
+}
+
+void copyArray(unsigned char* source, Array* destiny, size_t length)
+{
+	printf ("%d, ", 10);
+
+	for(int i = 0; i < length; i++)
+  {      
+		printf ("%d, ", i);
+  	insertArray(destiny, source[i]);
+  }
+}
+
+void freeArray(Array *a) {
+  free(a->array);
+  a->array = NULL;
+  a->used = a->size = 0;
+}
+
+// END OF ARRAY STRUCT
+
+int printHexArray(unsigned char* array, size_t length)
+{
+	for(unsigned int i = 0; i < length; i++)
+	{
+		printf ("0x%x ", array[i]);
+	}
+  printf ("\n");
+}

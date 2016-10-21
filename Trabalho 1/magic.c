@@ -17,7 +17,7 @@
 #define RR 0x01
 #define REJ 0x05 //todo mudar isto
 
-#define DEBUG 0
+#define DEBUG 1
 
 volatile int STOP=FALSE;
 
@@ -30,6 +30,8 @@ struct applicationLayer appL;
 struct linkLayer linkL;
 
 
+// ALARM HANDLER
+
 void alarmHandler()
 {
   if (DEBUG)
@@ -40,6 +42,78 @@ void alarmHandler()
   numOfTries++;
 }
 
+// BEGIN OF STUFFING FUNCTIONS
+
+/*
+    Returns the number of bytes that was either a FLAG or a ESCAPE and have been altered.
+*/
+int byteStuff(Array* inArray, Array* outArray)
+{
+    int count = 0;
+
+    initArray(outArray, 1); // to reset the array, so information can't be corrupted
+
+    for(int i = 0; i < inArray->used; i++)
+    {
+        if (inArray->array[i] == FLAG)
+        {
+            insertArray(outArray, ESCAPE);
+            insertArray(outArray, (FLAG^XOR_BYTE));
+            count++;
+        }
+
+        else if (inArray->array[i] == ESCAPE)
+        {
+            insertArray(outArray, ESCAPE);
+            insertArray(outArray, (ESCAPE^XOR_BYTE));
+            count++;
+        }
+
+        else
+        {
+            insertArray(outArray, inArray->array[i]);
+        }
+    }
+
+    return count;
+}
+
+int byteUnstuff(Array* inArray, Array* outArray)
+{
+    int count = 0;
+
+    initArray(outArray, 1);
+
+    for(int i = 0; i < inArray->used; i++)
+    {
+        if ((inArray->array[i] == ESCAPE) && (inArray->array[i+1] == (FLAG^XOR_BYTE)))
+        {
+            insertArray(outArray, FLAG);
+           
+            i++; // to skip next byte evaluation
+            count++;
+        }
+
+        else if ((inArray->array[i] == ESCAPE) && (inArray->array[i+1] == (ESCAPE^XOR_BYTE)))
+        {
+            insertArray(outArray, ESCAPE);
+            
+            i++;
+            count++;
+        }
+
+        else
+        {
+            insertArray(outArray, inArray->array[i]);
+        }
+    }
+
+    return count;
+}
+
+// END OF STUFFING FUNCTIONS
+
+// FUNCTION FOR RECEIVER TO VERIFY A SET
 
 void receive_set(int fd){
 
@@ -79,21 +153,25 @@ void receive_set(int fd){
         break;
     	}
 	}
-
-  sleep(2);
 }
 
 int send_cycle(int fd, char * msg){
 	
   (void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
 
-  int res;
+  int res = 0;
 
   //Cycle that sends the SET bytes, while waiting for UA
   while (numOfTries <= MAX_TRIES)
   {
     if(flag)
     {
+      if(DEBUG)
+      {
+        printf("linkL.frame: ");
+        printHexArray(linkL.frame, 10);
+      }
+
       res = write(fd, linkL.frame, sizeof(linkL.frame)); // writes the flags
 
       if(DEBUG)
@@ -117,7 +195,9 @@ int send_cycle(int fd, char * msg){
     return (-1);
   }
 
-  sleep(2);
+  numOfTries = 0;
+
+  flag = 1;
 
   return res;
 }
@@ -255,6 +335,103 @@ void close_set(int fd){
 		printf("I'm outside the feedback loop!\n");
 }
 
+int llwrite(int fd, char* buffer, int length)
+{
+  if(DEBUG)
+  {
+    printf ("insed llwrite \n");
+  }
+
+
+
+  Array msgBuffer; // strcut to store message buffer
+  initArray(&msgBuffer, 1);
+
+  if(DEBUG)
+  {
+    printf ("insed after msgBuffer \n");
+  }
+
+  copyArray(buffer, &msgBuffer, length);
+
+  if(DEBUG)
+  {
+    printf ("insed after copy \n");
+  }
+  
+  Array byteStuffed;  // struct to store converted array
+  initArray(&byteStuffed, 1);
+
+  if(DEBUG)
+  {
+    printf ("Inside llwrite. Got after the declaration of arrays.\n");
+  }
+
+  if(DEBUG)
+  {
+    printf ("Msg array: ");
+    printHexArray(msgBuffer.array, 10);
+    printf ("\n");
+  }
+
+  int alteredBytes = byteStuff(&msgBuffer, &byteStuffed);
+
+  if(DEBUG)
+  {
+    printf ("Inside llwrite. Got after the byte stuffing.\n");
+  }
+
+  if(DEBUG)
+  {
+    printf ("Altered bytes on llwrite debuffing: %d\n", alteredBytes);
+  }
+
+  char response[MAX_SIZE];
+
+  memcpy(linkL.frame, byteStuffed.array, byteStuffed.used);
+
+  send_cycle(fd, &response);
+	
+  if(DEBUG)
+  {
+    printf ("Stuffed array: ");
+    printHexArray(byteStuffed.array, 10);
+    printf ("\n");
+  }
+
+  return 0;
+
+  free(&msgBuffer);
+  free(&byteStuffed);
+}
+
+int llread(int fd, char* buffer)
+{
+  tcflush(fd, TCIOFLUSH);
+
+  STOP=FALSE;
+
+  //CYCLE
+  while (STOP==FALSE)  // loop for input
+	{      
+		int res = read(fd, buffer, sizeof(buffer));
+
+    	if (res >= 1)
+		  {
+        if(DEBUG)
+        {
+          printf ("Buffer inside llread: ");
+          printHexArray(buffer, 10);
+          printf ("\n");
+        }
+
+        break;
+    	}
+	}
+
+  return 0;
+}
+
 int llclose(int fd){
 	/*
 	if(appL.status == TRANSMITTER) 
@@ -297,9 +474,25 @@ int main(int argc, char** argv)
 	
 	
 	int fd = llopen();
-	
-	llclose(fd);
 
+  sleep(2);
+
+  if(appL.status == TRANSMITTER)
+  {
+    unsigned char msg[4]= {FLAG, FLAG, ESCAPE, 1};
+    printHexArray(&msg, 4);
+    llwrite(fd, msg, 4);
+  }
+
+  else
+  {
+    char msg[10];
+    llread(fd, msg);
+    printf ("Received message: ");
+    printHexArray(&msg, 10);
+  }
+	  
+  llclose(fd);
 
     return 0;
 }
