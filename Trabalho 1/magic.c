@@ -51,8 +51,6 @@ int byteStuff(Array* inArray, Array* outArray)
 {
     int count = 0;
 
-    initArray(outArray, 1); // to reset the array, so information can't be corrupted
-
     for(int i = 0; i < inArray->used; i++)
     {
         if (inArray->array[i] == FLAG)
@@ -84,8 +82,6 @@ int byteStuff(Array* inArray, Array* outArray)
 int byteUnstuff(Array* inArray, Array* outArray)
 {
     int count = 0;
-
-    initArray(outArray, 1);
 
     for(int i = 0; i < inArray->used; i++)
     {
@@ -168,7 +164,7 @@ void receive_set(int fd){
 
     STOP = FALSE;
 
-	  //CYCLE
+	//CYCLE
     while (STOP==FALSE)  // loop for input
 	  {      
      	
@@ -325,6 +321,27 @@ void close_set(int fd){
 		printf("I'm outside the feedback loop!\n");
 }
 
+void initializeInformationFrame(Array* frameArray)
+{
+	insertArray(frameArray, FLAG);
+	insertArray(frameArray, A_SND);
+	insertArray(frameArray, C_SET);
+	insertArray(frameArray, (frameArray->array[1] ^ frameArray->array[2]));
+}
+
+void endInformationFrame(Array* frameArray)
+{
+	char BCC2 = 0x0;
+
+	for(unsigned int i = 4; i < frameArray->used; i++)	// i == 4 so it skips first bytes
+	{
+		BCC2 = BCC2 ^ (frameArray->array[i]); // verify parity of data bytes
+	}
+
+	insertArray(frameArray, BCC2);
+	insertArray(frameArray, FLAG);
+}
+
 // [TRANSMITTER] Writes a frame of information to send_cycle
 // @param fd		File descriptor of the port
 // @param buffer	Message to be written
@@ -340,9 +357,13 @@ int llwrite(int fd, char* buffer, int length)
 	copyArray(buffer, &msgBuffer, length); // copy buffer to Array struct
 	
 	Array byteStuffed;  // struct to store converted array
-	initArray(&byteStuffed, 1);
+	initArray(&byteStuffed, MAX_SIZE);
+
+	initializeInformationFrame(&byteStuffed);
 
 	int alteredBytes = byteStuff(&msgBuffer, &byteStuffed);
+
+	endInformationFrame(&byteStuffed);
 
 	if(DEBUG)
 	{
@@ -351,7 +372,7 @@ int llwrite(int fd, char* buffer, int length)
 		printHexArray(byteStuffed.array, byteStuffed.used);
 	}
 
-	memcpy(linkL.frame, byteStuffed.array, byteStuffed.used);
+	memcpy(linkL.frame, byteStuffed.array, MAX_SIZE);
 
 	char response[MAX_SIZE];
 
@@ -374,6 +395,66 @@ int llwrite(int fd, char* buffer, int length)
 	return writtenChars;
 }
 
+// Returns the length of the dataOut array
+int getDataFromFrame(char* frameIn, char* dataOut)
+{
+	if(DEBUG)
+	{
+		printf("getDataFromFrame() begin:\n");
+		printf("frameIn: ");
+		printHexArray(frameIn, 15);
+	}
+	int beginFlag = 0, endFlag = 0;
+
+	unsigned int beginFlagPosition = 0;
+	unsigned int endFlagPosition = 0;
+
+	unsigned int beginDataPosition = 0;
+	unsigned int endDataPosition = 0;
+
+	for(int i = 0; i < MAX_SIZE; i++)
+	{
+		if(frameIn[i] == FLAG)
+		{
+			beginFlagPosition = i;
+			beginFlag = 1;
+
+			beginDataPosition = beginFlagPosition + 4;
+			break;
+		}
+	}
+
+	for(int i = beginDataPosition ; i < MAX_SIZE - beginDataPosition ; i++)
+	{
+		if(frameIn[i] == FLAG)
+		{
+			endFlagPosition = i;
+			endFlag = 1;
+
+			endDataPosition = endFlagPosition - 1; // this is the byte after the last byte of data
+			break;
+		}
+	}
+
+	if(beginFlag == 0 || endFlag == 0)	// if one of the flags wasn't found
+		return -1;
+
+	unsigned int length = endDataPosition - beginDataPosition;
+
+	memcpy(dataOut, frameIn + beginDataPosition, length);
+	
+	if(DEBUG)
+	{
+		printf("getDataFromFrame() end:\n");
+		printf("dataOut: ");
+		printHexArray(dataOut, length);
+		printf("\n");
+	}
+
+	return length;
+	
+}
+
 int llread(int fd, char* buffer)
 {
 	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
@@ -383,23 +464,25 @@ int llread(int fd, char* buffer)
 
 	//CYCLE
 	while (STOP==FALSE)  // loop for input
-		{      
-			int res = read(fd, buffer, sizeof(buffer));
+	{      
+		int res = read(fd, buffer, MAX_SIZE);
 
-			if (res >= 1)
+		if (res >= 1)
+		{
+			if(DEBUG)
 			{
-				if(DEBUG)
-				{
-					printf ("Buffer inside llread: ");
-					printHexArray(buffer, 10);
-					printf ("\n");
-				}
-
-				break;
+				printf ("Buffer inside llread: ");
+				printHexArray(buffer, 15);
+				printf ("\n");
 			}
-		}
 
-	//tcflush(fd, TCIOFLUSH);
+			break;
+		}
+	}
+
+	char data[MAX_SIZE];
+
+	getDataFromFrame(buffer, data);
 
 	return 0;
 }
@@ -458,10 +541,10 @@ int main(int argc, char** argv)
 
 	else
 	{
-		char msg[10];
+		char msg[MAX_SIZE];
 		llread(fd, msg);
 		printf ("Received message: ");
-		printHexArray(msg, 10);
+		printHexArray(msg, 15);
 	}
 		
 	llclose(fd);
