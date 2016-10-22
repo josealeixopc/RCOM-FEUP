@@ -395,6 +395,66 @@ int llwrite(int fd, char* buffer, int length)
 	return writtenChars;
 }
 
+// Returns the length of the dataOut array
+int getDataFromFrame(char* frameIn, char* dataOut)
+{
+	if(DEBUG)
+	{
+		printf("getDataFromFrame() begin:\n");
+		printf("frameIn: ");
+		printHexArray(frameIn, 15);
+	}
+	int beginFlag = 0, endFlag = 0;
+
+	unsigned int beginFlagPosition = 0;
+	unsigned int endFlagPosition = 0;
+
+	unsigned int beginDataPosition = 0;
+	unsigned int endDataPosition = 0;
+
+	for(int i = 0; i < MAX_SIZE; i++)
+	{
+		if(frameIn[i] == FLAG)
+		{
+			beginFlagPosition = i;
+			beginFlag = 1;
+
+			beginDataPosition = beginFlagPosition + 4;
+			break;
+		}
+	}
+
+	for(int i = beginDataPosition ; i < MAX_SIZE - beginDataPosition ; i++)
+	{
+		if(frameIn[i] == FLAG)
+		{
+			endFlagPosition = i;
+			endFlag = 1;
+
+			endDataPosition = endFlagPosition - 1; // this is the byte after the last byte of data
+			break;
+		}
+	}
+
+	if(beginFlag == 0 || endFlag == 0)	// if one of the flags wasn't found
+		return -1;
+
+	unsigned int length = endDataPosition - beginDataPosition;
+
+	memcpy(dataOut, frameIn + beginDataPosition, length);
+	
+	if(DEBUG)
+	{
+		printf("getDataFromFrame() end:\n");
+		printf("dataOut: ");
+		printHexArray(dataOut, length);
+		printf("\n");
+	}
+
+	return length;
+	
+}
+
 int llread(int fd, char* buffer)
 {
 	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
@@ -404,23 +464,25 @@ int llread(int fd, char* buffer)
 
 	//CYCLE
 	while (STOP==FALSE)  // loop for input
-		{      
-			int res = read(fd, buffer, MAX_SIZE);
+	{      
+		int res = read(fd, buffer, MAX_SIZE);
 
-			if (res >= 1)
+		if (res >= 1)
+		{
+			if(DEBUG)
 			{
-				if(DEBUG)
-				{
-					printf ("Buffer inside llread: ");
-					printHexArray(buffer, 15);
-					printf ("\n");
-				}
-
-				break;
+				printf ("Buffer inside llread: ");
+				printHexArray(buffer, 15);
+				printf ("\n");
 			}
-		}
 
-	//tcflush(fd, TCIOFLUSH);
+			break;
+		}
+	}
+
+	char data[MAX_SIZE];
+
+	getDataFromFrame(buffer, data);
 
 	return 0;
 }
