@@ -34,12 +34,12 @@ struct linkLayer linkL;
 
 void alarmHandler()
 {
-  if (DEBUG)
-  {
-    printf("handled alarm. Try number: %d\n", numOfTries);
-  }
-  flag = 1;
-  numOfTries++;
+	if (DEBUG)
+	{
+		printf("handled alarm. Try number: %d\n", numOfTries);
+	}
+	flag = 1;
+	numOfTries++;
 }
 
 // BEGIN OF STUFFING FUNCTIONS
@@ -78,6 +78,9 @@ int byteStuff(Array* inArray, Array* outArray)
     return count;
 }
 
+/*
+    Returns the number of bytes that was converted to either a FLAG or a ESCAPE.
+*/
 int byteUnstuff(Array* inArray, Array* outArray)
 {
     int count = 0;
@@ -113,17 +116,63 @@ int byteUnstuff(Array* inArray, Array* outArray)
 
 // END OF STUFFING FUNCTIONS
 
-// FUNCTION FOR RECEIVER TO VERIFY A SET
+// [TRANSMITTER] Function to send a message with timeout and receive response from receiver
+// @return Result of read call
+int send_cycle(int fd, char* feedback){
+	
+	(void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
+
+	int writtenChars = 0;
+	int res = 0;
+
+	flag = 1;
+	numOfTries = 0; // tries to send 3 times each message
+
+	//Cycle that sends the SET bytes, while waiting for UA
+	while (numOfTries <= MAX_TRIES)
+	{
+		if(flag)
+		{
+			writtenChars = write(fd, linkL.frame, sizeof(linkL.frame)); // writes the flags
+
+			if(DEBUG)
+			{
+				printf("Wrote linkL.frame: ");
+				printHexArray(linkL.frame, 20);
+				printf("\n");
+			}
+
+			alarm(3); /* waits 3 seconds, then activates a SIGALRM */
+			flag = 0; /* doesn't resend a signal until an alarm is handled */
+		}
+
+		res = read(fd, feedback, sizeof(feedback)); // read feedback every clock tick
+
+		if (res >= 1) // if it read something
+			break;
+	}
+
+	if(res < 1)
+	{
+		printf("ERROR: No response from receiver.\n");
+	}
+
+	return writtenChars;
+}
+
+// [RECEIVER] Receive a set frame and verify it by sending UA response
 
 void receive_set(int fd){
 
   	unsigned char receivedSET[5];	// array to store SET bytes
 
-	//CYCLE
+    STOP = FALSE;
+
+	  //CYCLE
     while (STOP==FALSE)  // loop for input
-	{      
+	  {      
      	
-		int res = read(fd,receivedSET, sizeof(receivedSET)); // reads the flag value
+		int res = read (fd,receivedSET, sizeof(receivedSET)); // reads the flag value
 
 		if(DEBUG)
 		{
@@ -155,98 +204,46 @@ void receive_set(int fd){
 	}
 }
 
-int send_cycle(int fd, char * msg){
-	
-  (void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
-
-  int res = 0;
-
-  //Cycle that sends the SET bytes, while waiting for UA
-  while (numOfTries <= MAX_TRIES)
-  {
-    if(flag)
-    {
-      if(DEBUG)
-      {
-        printf("linkL.frame: ");
-        printHexArray(linkL.frame, 10);
-      }
-
-      res = write(fd, linkL.frame, sizeof(linkL.frame)); // writes the flags
-
-      if(DEBUG)
-      {
-        printf("%d bytes written to receiver: 0x%x 0x%x 0x%x 0x%x 0x%x\n", res, linkL.frame[0], linkL.frame[1], linkL.frame[2], linkL.frame[3], linkL.frame[4]);
-      }
-
-      alarm(3); /* waits 3 seconds, then activates a SIGALRM */
-      flag = 0; /* doesn't resend a signal until an alarm is handled */
-    }
-
-    res = read(fd, msg, sizeof(msg)); // read feedback
-
-    if (res >= 1) // if it read something
-      break;
-  }
-
-  if(numOfTries == MAX_TRIES && res < 1)
-  {
-    printf("ERROR: No response from receiver.\n");
-    return (-1);
-  }
-
-  numOfTries = 0;
-
-  flag = 1;
-
-  return res;
-}
-
+// [TRANSMITTER] Try to send set flag 3 times and receive UA response
 
 void send_set(int fd){
-	int tries = 3; //number of tries to receive feedback
+
 	int res;
-	char* msg = (unsigned char *) malloc(5*sizeof(unsigned char));;
+	char msg[5] = {};
   
 	res = send_cycle(fd, msg);
     if(res == -1) {
     	printf("deu erro a enviar!");
     	return;
     }
-    //todo ver isto dp
+
     
-  if (res < 1)
-  {
-    printf("ERROR: no message received.\n");
-  }  
+	if (res < 1)
+	{
+		printf("ERROR: no message received.\n");
+	}  
+
 	else if(badUA(msg)) {
-    printf("ERROR: bad UA received.\n");
-    exit(-1);
-  }
-  else
-  {
-    if(DEBUG)
-    {
-      printf("Received valid UA.\n");
-    }
-  }
+		printf("ERROR: bad UA received.\n");
+		exit(-1);
+	}
 
-  if (DEBUG)
-  {
-    printf("I'm outside the feedback loop!\n");
-    printf("%d bytes received: ", res);
-    printf("0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n", msg[0], msg[1], msg[2], msg[3], msg[4]);
-    printf("badUA: %d\n", badUA(msg));
-  }
+	else
+	{
+		if(DEBUG)
+		{
+		printf("Received valid UA.\n");
+		}
+	}
 
-
-	free(msg);
 }
 
+//[TRANSMITTER AND RECEIVER] Sets the connection up between devices
 
 int llopen(){
+
 	int fd;
-	unsigned char trama_su[5];
+	char trama_su[5];  // open frame 
 	
 	trama_su[0] = FLAG;
 	trama_su[1] = A_SND;
@@ -262,7 +259,6 @@ int llopen(){
     Open serial port device for reading and writing and not as controlling tty
     because we don't want to get killed if linenoise sends CTRL-C.
   */
-	
 	
     fd = open(linkL.port, O_RDWR | O_NOCTTY );
     if (fd <0) {perror(linkL.port); exit(-1); }
@@ -303,12 +299,6 @@ int llopen(){
 	
 	memcpy(linkL.frame, trama_su, sizeof(trama_su));
 
-  if(DEBUG)
-  {
-  printf("trama_su: %x %x %x %x %x %x\n", trama_su[0], trama_su[1], trama_su[2], trama_su[3],trama_su[4], trama_su[5]);
-	printf("frame: 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n", linkL.frame[0], linkL.frame[1], linkL.frame[2], linkL.frame[3], linkL.frame[4], linkL.frame[5]);
-  }
-
 	if(appL.status == TRANSMITTER)
 		send_set(fd);
 	else 
@@ -335,101 +325,83 @@ void close_set(int fd){
 		printf("I'm outside the feedback loop!\n");
 }
 
+// [TRANSMITTER] Writes a frame of information to send_cycle
+// @param fd		File descriptor of the port
+// @param buffer	Message to be written
+// @param length	Length of the message
+// @return 			Number of chars (bytes) written
+
 int llwrite(int fd, char* buffer, int length)
 {
-  if(DEBUG)
-  {
-    printf ("insed llwrite \n");
-  }
 
+	Array msgBuffer; // strcut to store message buffer
+	initArray(&msgBuffer, 1);
 
-
-  Array msgBuffer; // strcut to store message buffer
-  initArray(&msgBuffer, 1);
-
-  if(DEBUG)
-  {
-    printf ("insed after msgBuffer \n");
-  }
-
-  copyArray(buffer, &msgBuffer, length);
-
-  if(DEBUG)
-  {
-    printf ("insed after copy \n");
-  }
-  
-  Array byteStuffed;  // struct to store converted array
-  initArray(&byteStuffed, 1);
-
-  if(DEBUG)
-  {
-    printf ("Inside llwrite. Got after the declaration of arrays.\n");
-  }
-
-  if(DEBUG)
-  {
-    printf ("Msg array: ");
-    printHexArray(msgBuffer.array, 10);
-    printf ("\n");
-  }
-
-  int alteredBytes = byteStuff(&msgBuffer, &byteStuffed);
-
-  if(DEBUG)
-  {
-    printf ("Inside llwrite. Got after the byte stuffing.\n");
-  }
-
-  if(DEBUG)
-  {
-    printf ("Altered bytes on llwrite debuffing: %d\n", alteredBytes);
-  }
-
-  char response[MAX_SIZE];
-
-  memcpy(linkL.frame, byteStuffed.array, byteStuffed.used);
-
-  send_cycle(fd, &response);
+	copyArray(buffer, &msgBuffer, length); // copy buffer to Array struct
 	
-  if(DEBUG)
-  {
-    printf ("Stuffed array: ");
-    printHexArray(byteStuffed.array, 10);
-    printf ("\n");
-  }
+	Array byteStuffed;  // struct to store converted array
+	initArray(&byteStuffed, 1);
 
-  return 0;
+	int alteredBytes = byteStuff(&msgBuffer, &byteStuffed);
 
-  free(&msgBuffer);
-  free(&byteStuffed);
+	if(DEBUG)
+	{
+		printf("\n%d bytes altered.\n", alteredBytes);
+		printf("ByteStuffed: ");
+		printHexArray(byteStuffed.array, byteStuffed.used);
+	}
+
+	memcpy(linkL.frame, byteStuffed.array, byteStuffed.used);
+
+	char response[MAX_SIZE];
+
+	int writtenChars = send_cycle(fd, response);
+		
+	if(DEBUG)
+	{
+		printf ("Wrote %lu chars for original: ", byteStuffed.used);
+		printHexArray(buffer, length);
+		printf ("Received %d chars: ", writtenChars);
+		printHexArray(response, 20);
+	}
+
+	freeArray(&msgBuffer);
+	freeArray(&byteStuffed);
+
+	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
+	//tcflush(fd, TCIOFLUSH); // discards data stuck in fd
+
+	return writtenChars;
 }
 
 int llread(int fd, char* buffer)
 {
-  tcflush(fd, TCIOFLUSH);
+	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
+	tcflush(fd, TCIOFLUSH); // REMOVING THIS CAUSES TROUBLE READING!!!
 
-  STOP=FALSE;
+	STOP=FALSE;
 
-  //CYCLE
-  while (STOP==FALSE)  // loop for input
-	{      
-		int res = read(fd, buffer, sizeof(buffer));
+	//CYCLE
+	while (STOP==FALSE)  // loop for input
+		{      
+			int res = read(fd, buffer, sizeof(buffer));
 
-    	if (res >= 1)
-		  {
-        if(DEBUG)
-        {
-          printf ("Buffer inside llread: ");
-          printHexArray(buffer, 10);
-          printf ("\n");
-        }
+			if (res >= 1)
+			{
+				if(DEBUG)
+				{
+					printf ("Buffer inside llread: ");
+					printHexArray(buffer, 10);
+					printf ("\n");
+				}
 
-        break;
-    	}
-	}
+				break;
+			}
+		}
 
-  return 0;
+	//tcflush(fd, TCIOFLUSH);
+
+	return 0;
 }
 
 int llclose(int fd){
@@ -467,32 +439,32 @@ int main(int argc, char** argv)
 
 	strcpy(linkL.port, argv[1]);
 
-  if(DEBUG)
-  {
-    printf ("linkL.port in main: %s\n", linkL.port);
-  }
-	
+	if(DEBUG)
+	{
+		printf ("linkL.port in main: %s\n", linkL.port);
+	}
 	
 	int fd = llopen();
 
-  sleep(2);
+	sleep(2);
 
-  if(appL.status == TRANSMITTER)
-  {
-    unsigned char msg[4]= {FLAG, FLAG, ESCAPE, 1};
-    printHexArray(&msg, 4);
-    llwrite(fd, msg, 4);
-  }
+	if(appL.status == TRANSMITTER)
+	{
+		char msg[4]= {FLAG, FLAG, ESCAPE, 1};
+		printf ("Message to send: ");
+		printHexArray(msg, 4);
+		llwrite(fd, msg, 4);
+	}
 
-  else
-  {
-    char msg[10];
-    llread(fd, msg);
-    printf ("Received message: ");
-    printHexArray(&msg, 10);
-  }
-	  
-  llclose(fd);
+	else
+	{
+		char msg[10];
+		llread(fd, msg);
+		printf ("Received message: ");
+		printHexArray(msg, 10);
+	}
+		
+	llclose(fd);
 
-    return 0;
+		return 0;
 }
