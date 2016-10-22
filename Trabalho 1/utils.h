@@ -33,54 +33,18 @@
 #define ESCAPE 0x7d
 #define XOR_BYTE 0x20
 
-char SET[5] = {FLAG, A_SND, C_SET, A_SND^C_SET, FLAG};
-char UA[5] = {FLAG, A_SND, C_UA, A_SND^C_UA, FLAG};
+char SET[5]; 
+char UA[5];
 
-int badSET(char* SET)
-{
-	if (SET[0] != FLAG)
-		return -1;
+int badSET(char* set);
 
-	if (SET[1] != A_SND)
-		return -2;
-
-	if (SET[2] != C_SET)
-		return -3;
-
-	if (SET[3] != (A_SND ^ C_SET))
-		return -4;
-
-	if (SET[4] != FLAG)
-		return -5;
-
-	return 0;
-}
-
-int badUA(char *UA)
-{
-  if (UA[0] != FLAG)
-    return -1;
-
-  if (UA[1] != A_SND)
-    return -2;
-
-  if (UA[2] != C_UA)
-    return -3;
-
-  if (UA[3] != (A_SND^C_UA))
-    return -4;
-
-  if (UA[4] != FLAG)
-    return -5;
-
-  return 0;
-}
+int badUA(char *ua);
 
 struct applicationLayer {
 	int fileDescriptor; /*Descritor correspondente à porta série*/
 	int status;	/*TRANSMITTER | RECEIVER*/
 };
-//ayy lmao :)
+
 struct linkLayer {
 	char port[20]; /*Dispositivo /dev/ttySx, x = 0, 1*/
 	int baudRate;	/*Velocidade de transmissão (no clue) ??!?*/
@@ -98,49 +62,15 @@ typedef struct {
   size_t size;
 } Array;
 
-void initArray(Array *a, size_t initialSize) {
-  a->array = (char* )malloc(initialSize * sizeof(char*));
-  a->used = 0;
-  a->size = initialSize;
+void initArray(Array *a, size_t initialSize);
 
-  if(initialSize <= 0)
-  {
-      printf("ERROR: Array size cannot be 0 or less.\n");
-  }
-}
+void insertArray(Array *a, char element);
 
-void insertArray(Array *a, char element) {
-  if (a->used == a->size) {
-    a->size *= 1;
-    a->array = (char*)realloc(a->array, a->size * sizeof(char*));
-  }
-  a->array[a->used++] = element;
-}
+void copyArray(char* source, Array* destiny, size_t length);
 
-void copyArray(char* source, Array* destiny, size_t length)
-{
-	printf ("%d, ", 10);
-
-	for(int i = 0; i < length; i++)
-  {      
-		printf ("%d, ", i);
-  	insertArray(destiny, source[i]);
-  }
-}
-
-void freeArray(Array *a) {
-  free(a->array);
-  a->array = NULL;
-  a->used = a->size = 0;
-}
+void freeArray(Array *a);
 
 // END OF ARRAY STRUCT
 
-int printHexArray(char* array, size_t length)
-{
-	for(unsigned int i = 0; i < length; i++)
-	{
-		printf ("0x%x ", array[i]);
-	}
-  printf ("\n");
-}
+
+int printHexArray(char* array, size_t length);

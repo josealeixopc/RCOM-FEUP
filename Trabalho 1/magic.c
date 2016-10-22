@@ -1,5 +1,6 @@
 /*Non-Canonical Input Processing*/
 #include "utils.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -18,6 +19,9 @@
 #define REJ 0x05 //todo mudar isto
 
 #define DEBUG 1
+
+char SET[5] = {FLAG, A_SND, C_SET, A_SND^C_SET, FLAG};
+char UA[5] = {FLAG, A_SND, C_UA, A_SND^C_UA, FLAG};
 
 volatile int STOP=FALSE;
 
