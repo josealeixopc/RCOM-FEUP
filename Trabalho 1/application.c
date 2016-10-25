@@ -27,6 +27,12 @@ int main(int argc, char** argv)
 		printf ("linkL.port in main: %s\n", linkL.port);
 	}
 
+    unsigned char test[9] = {FLAG, A_SND, C_SET, 0x1, FLAG};
+
+    llwrite(0, test, sizeof(test));
+
+    printf ("Sizeof test: %lu", sizeof(test));
+
     return 0;
 
 }

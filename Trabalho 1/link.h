@@ -46,3 +46,8 @@ int badUA(unsigned char *ua);
 /* The return is the number of bytes altered (number of ESCAPE and FLAG bytes) in frame */
 int byteStuff(Array* inArray, Array* outArray);
 int byteUnstuff(Array* inArray, Array* outArray);
+
+/* Comunication functions */
+
+ // [TRANSMITTER]
+int llwrite(int fd, unsigned char* packet, size_t length);

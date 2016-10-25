@@ -106,5 +106,21 @@ int byteUnstuff(Array* inArray, Array* outArray)
 
 /******************** SEND & RECEIVE FUNCTIONS *******************/
 
+int llwrite(int fd, unsigned char* packet, size_t length)
+{
+    Array packetArray;
+    initArray(&packetArray, 1);
 
+    copyArray(packet, &packetArray, length);
+
+    if(DEBUG)
+    {
+        printf("Copied array after copyArray(): ");
+        printHexArray(&packetArray);
+    }
+
+    freeArray(&packetArray);
+
+    return 0;
+}
 
