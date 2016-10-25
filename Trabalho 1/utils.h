@@ -76,6 +76,26 @@ int badUA(char *UA)
   return 0;
 }
 
+int badDisc(unsigned char *UA)
+{
+  if (UA[0] != FLAG)
+    return -1;
+
+  if (UA[1] != A_SND)
+    return -2;
+
+  if (UA[2] != C_DISC)
+    return -3;
+
+  if (UA[3] != (A_SND^C_DISC))
+    return -4;
+
+  if (UA[4] != FLAG)
+    return -5;
+
+  return 0;
+}
+
 struct applicationLayer {
 	int fileDescriptor; /*Descritor correspondente à porta série*/
 	int status;	/*TRANSMITTER | RECEIVER*/
