@@ -4,6 +4,8 @@ ApplicationLayer appL;
 LinkLayer linkL;
 Stats stats;
 
+struct termios oldtio;
+
 int main(int argc, char** argv)
 {
     if ((argc < 3) ||
@@ -27,9 +29,9 @@ int main(int argc, char** argv)
 		printf ("linkL.port in main: %s\n", linkL.port);
 	}
 
-    unsigned char test[9] = {FLAG, A_SND, C_SET, 0x1, FLAG};
+    unsigned char test[9] = {FLAG, A_SND, C_SET, 0x1, FLAG, ESCAPE, FLAG};
 
-    llwrite(0, test, sizeof(test));
+    llwrite(0, test, sizeof(test), &linkL);
 
     printf ("Sizeof test: %lu", sizeof(test));
 

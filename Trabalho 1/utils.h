@@ -1,9 +1,15 @@
 #pragma once
 
-#include <signal.h>
-#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <termios.h>
 #include <stdio.h>
+#include <math.h>
 #include <string.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
 
 #define MAX_SIZE 255
 
@@ -52,3 +58,5 @@ void freeArray(Array *a);
 
 /* Prints array elements in hexadecimal form*/
 void printHexArray(Array* array);
+void printHexBuffer(unsigned char* array, size_t length);
+

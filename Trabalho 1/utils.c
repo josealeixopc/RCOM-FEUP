@@ -45,5 +45,16 @@ void printHexArray(Array* array)
 	{
 		printf ("0x%x ", array->array[i]);
 	}
-  printf ("\n");
+    
+    printf ("\n");
+}
+
+void printHexBuffer(unsigned char* array, size_t length)
+{
+    for(unsigned int i = 0; i < length; i++)
+	{
+		printf ("0x%x ", array[i]);
+	}
+    
+    printf ("\n");
 }

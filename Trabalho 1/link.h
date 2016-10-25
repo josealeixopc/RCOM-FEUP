@@ -47,7 +47,10 @@ int badUA(unsigned char *ua);
 int byteStuff(Array* inArray, Array* outArray);
 int byteUnstuff(Array* inArray, Array* outArray);
 
+/* Frame preparation functions */
+
+
 /* Comunication functions */
 
  // [TRANSMITTER]
-int llwrite(int fd, unsigned char* packet, size_t length);
+int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL);
