@@ -2,6 +2,7 @@
 
 ApplicationLayer appL;
 LinkLayer linkL;
+Stats stats;
 
 int main(int argc, char** argv)
 {

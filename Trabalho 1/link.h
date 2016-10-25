@@ -20,14 +20,29 @@
 #define C_SET 0x03
 #define C_UA 0x07
 #define C_DISC 0x0b
+#define C_FRAME_0 0x00  // sequence number 0
+#define C_FRAME_1 0x40  // sequence number 1
 
-#define RR_0 0x05
-#define RR_1 0x85
+#define RR_0 0x05   // ready for frame 0
+#define RR_1 0x85   // ready for frame 1
 
-#define REJ_0 0x01
-#define REJ_1 0x81
+#define REJ_0 0x01  // error receiving frame 0, send 0 again
+#define REJ_1 0x81  // error receiving frame 1, send 1 again
 
 #define MAX_TRIES 3
+#define TIMEOUT 3
 
 #define ESCAPE 0x7d
 #define XOR_BYTE 0x20
+
+// Verifying commands
+
+/* The return is 0 if the command is OK, otherwise it returns a negative number */
+int badSET(unsigned char* set);
+int badUA(unsigned char *ua);
+
+// Byte stuffing & unstuffing
+
+/* The return is the number of bytes altered (number of ESCAPE and FLAG bytes) in frame */
+int byteStuff(Array* inArray, Array* outArray);
+int byteUnstuff(Array* inArray, Array* outArray);

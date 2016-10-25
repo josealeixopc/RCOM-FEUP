@@ -29,6 +29,18 @@ typedef struct {
   size_t size;
 } Array;
 
+typedef struct {
+    unsigned int framesSent;
+    unsigned int framesReceived;
+
+    unsigned int numTimeouts;
+
+    unsigned int numRR;
+
+    unsigned int numREJ;
+
+} Stats;
+
 
 void initArray(Array *a, size_t initialSize);
 
