@@ -29,11 +29,15 @@ int main(int argc, char** argv)
 		printf ("linkL.port in main: %s\n", linkL.port);
 	}
 
-    unsigned char test[9] = {FLAG, A_SND, C_SET, 0x1, FLAG, ESCAPE, FLAG};
+	llopen(&appL, &linkL, &oldtio);
 
-    llwrite(0, test, sizeof(test), &linkL);
+	//unsigned char test[9] = {FLAG, A_SND, C_SET, 0x1, FLAG, ESCAPE, FLAG};
 
-    printf ("Sizeof test: %lu", sizeof(test));
+    //llwrite(0, test, sizeof(test), &linkL);
+
+    //printf ("Sizeof test: %lu", sizeof(test));
+
+	llclose(&appL, &oldtio);
 
     return 0;
 

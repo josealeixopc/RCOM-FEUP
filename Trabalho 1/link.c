@@ -64,6 +64,26 @@ int badUA(unsigned char *ua)
   return 0;
 }
 
+int badDISC(unsigned char *disc)
+{
+  if (disc[0] != FLAG)
+    return -1;
+
+  if (disc[1] != A_SND)
+    return -2;
+
+  if (disc[2] != C_DISC)
+    return -3;
+
+  if (disc[3] != (A_SND^C_DISC))
+    return -4;
+
+  if (disc[4] != FLAG)
+    return -5;
+
+  return 0;
+}
+
 /******************** STUFFING FUNCTIONS *******************/
 
 int byteStuff(Array* inArray, Array* outArray)
@@ -312,6 +332,88 @@ int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio){
 		receive_set(fd);
 
 	return fd;
+}
+
+int close_ua(int fd){
+	int res;
+	tcflush(fd, TCIOFLUSH);
+	
+	unsigned char received[5];	// array to store SET bytes
+	unsigned char * DISC = UA;
+	DISC[2] = C_DISC;
+	DISC[3] = A_SND^C_DISC;
+	STOP = FALSE;
+
+    //CYCLE
+	while (STOP==FALSE)  // loop for input
+	{
+
+	res = read (fd,received, 5); // reads the flag value
+
+	if(DEBUG)
+	{
+		printf ("%d bytes received\n", res);
+		printHexBuffer(received, sizeof(received));
+	}
+
+		if (res >= 1 && !badDISC(received))
+		{
+			res = write(fd, DISC, 5); // send response
+			if(res > 1){
+				unsigned char last[5];
+				res = read(fd, last, 5);
+				printHexBuffer(last, 5);
+				if(!badUA(last)) printf("Deu!\n");
+			}
+          		STOP=TRUE;
+			return 0;
+		}
+	}
+	return -1;
+}
+
+void close_set(int fd)
+{
+	int res;
+	tcflush(fd, TCIOFLUSH);
+	unsigned char * DISC = SET;
+	DISC[2] = C_DISC;
+	DISC[3] = A_SND^C_DISC;
+	unsigned char buf[5];
+
+	res = send_cycle(fd, DISC,5);
+	if(res < 1)printf("error sending disc \n");
+	res = read(fd, buf, 5);
+	if(!badDISC(DISC)){
+			printf("read disconnect success");
+			res = send_cycle(fd, UA, 5);
+			if(res > 1) printf("\nsent final handshake\n");
+			return;
+
+	}
+
+	if(DEBUG)
+		printf("I'm outside the feedback loop!\n");
+}
+
+int llclose(ApplicationLayer* appL, struct termios* oldtio)
+{
+    int fd = appL->fileDescriptor;
+
+	if(appL->status == TRANSMITTER) 
+        close_set(fd);
+	else 
+        close_ua(fd);
+
+
+    if (tcsetattr(fd,TCSANOW,oldtio) == -1) {
+      perror("tcsetattr");
+      exit(-1);
+    }
+
+    close(fd);
+
+	return 0;
 }
 
 /******************** FRAME PREPARATION FUNCTIONS *******************/

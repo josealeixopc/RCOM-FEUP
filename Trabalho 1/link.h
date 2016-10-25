@@ -40,6 +40,7 @@
 /* The return is 0 if the command is OK, otherwise it returns a negative number */
 int badSET(unsigned char* set);
 int badUA(unsigned char *ua);
+int badDISC(unsigned char *disc);
 
 // Byte stuffing & unstuffing
 
@@ -51,6 +52,10 @@ int byteUnstuff(Array* inArray, Array* outArray);
 
 
 /* Comunication functions */
+
+// Open & close
+int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio);
+int llclose(ApplicationLayer* appL, struct termios* oldtio);
 
  // [TRANSMITTER]
 int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL);
