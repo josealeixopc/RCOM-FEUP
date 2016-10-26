@@ -690,7 +690,7 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 	{      
 		res = read(fd, &readByte, 1);
 
-		if(res < 0)
+		if(res <= 0)
 			continue;
 
 		insertArray(&receivedFrame, readByte);
@@ -698,14 +698,21 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 		if(readByte == FLAG && beginFlag == 0)
 		{
 			beginFlag = 1;
+			continue;
 		}
 		if(readByte == FLAG && beginFlag == 1)
 		{
 			STOP = TRUE;
+			continue;
 		}
 	}
 
-	printHexArray(&receivedFrame);
+	if(DEBUG)
+	{
+		printf("Received frame: ");
+		printHexArray(&receivedFrame);
+		printf("End of received frame.\n");
+	}
 
 	/*unsigned char data[MAX_SIZE];
 

@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 	}
 
 
-	llclose(&appL, &oldtio);
+	//llclose(&appL, &oldtio);
 
     return 0;
 
