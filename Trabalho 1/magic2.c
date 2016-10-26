@@ -52,31 +52,37 @@ void alarmHandler()
 
 // [TRANSMITTER] Function to send a message with timeout and receive response from receiver
 // @return Result of read call
-int send_cycle(int fd, unsigned char * sendMsg,int size){
-
-	(void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
-
-	int writtenChars = 0;
+int send_cycle(int fd, unsigned char * sendMsg,int size, unsigned char * received){
 
 	flag = 1;
 	numOfTries = 0; // tries to send 3 times each message
+	(void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
 
+	int writtenChars = 0;
+	printf("qwdq %d %d", flag, numOfTries);
 	//Cycle that sends the SET bytes, while waiting for UA
 	while(numOfTries < MAX_TRIES){
 		if(flag)
 		{
+			alarm(3); /* waits 3 seconds, then activates a SIGALRM */
+			flag = 0; /* doesn't resend a signal until an alarm is handled */
 			writtenChars = write(fd, sendMsg, size); // writes the flags
 
 			if(DEBUG)
 			{
 				printf("Wrote msg: ");
-				printHexArray(sendMsg, 5);
+				printHexArray(sendMsg, writtenChars);
 			}
-			if(writtenChars > 1 ) break;
-			alarm(3); /* waits 3 seconds, then activates a SIGALRM */
-			flag = 0; /* doesn't resend a signal until an alarm is handled */
 		}
+		
+		int res = read(fd, received, size);
+		if(res > 1){
+			printf("Read Success!\n");
+			return writtenChars;
+		}
+
 	}
+
 
 	return writtenChars;
 }
@@ -86,7 +92,7 @@ int send_cycle(int fd, unsigned char * sendMsg,int size){
 void receive_set(int fd){
 
   	unsigned char receivedSET[5];	// array to store SET bytes
-
+	
     STOP = FALSE;
 
 	//CYCLE
@@ -131,20 +137,14 @@ void send_set(int fd){
 
 	int res;
 	unsigned char msg[5];
-
-	res = send_cycle(fd, SET, 5);
+	res = send_cycle(fd, SET, 5, msg);
     if(res == -1) {
     	printf("deu erro a enviar!");
     	return;
     }
-
-	res = read(fd, msg, 5);
-	if (res < 1)
-	{
-		printf("ERROR: no message received.\n");
-	}
 	if(badUA(msg)) {
 		printf("ERROR: bad UA received.\n");
+		write(fd, "AYY LIMAO", 9);
 		exit(-1);
 	}
 
@@ -152,11 +152,12 @@ void send_set(int fd){
 	{
 		if(DEBUG)
 		{
-		printf("Received valid UA.\n");
-		printHexArray(msg, 5);
+			printf("Received valid UA.\n");
+			//alarm(0);
+			printHexArray(msg, 5);
 		}
 	}
-
+	
 }
 
 //[TRANSMITTER AND RECEIVER] Sets the connection up between devices
@@ -183,7 +184,7 @@ int llopen(){
     because we don't want to get killed if linenoise sends CTRL-C.
   */
 	initTrama();
-    fd = open(linkL.port, O_RDWR | O_NOCTTY );
+    fd = open(linkL.port, O_RDWR | O_NOCTTY |  O_NONBLOCK);
     if (fd <0) {perror(linkL.port); exit(-1); }
 
     if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
@@ -232,7 +233,7 @@ int close_ua(int fd){
 	int res;
 	tcflush(fd, TCIOFLUSH);
 	
-	unsigned char received[5];	// array to store SET bytes
+	unsigned char  * received = malloc(5*sizeof(unsigned char * ));	// array to store SET bytes
 	unsigned char * DISC = UA;
 	DISC[2] = C_DISC;
 	DISC[3] = A_SND^C_DISC;
@@ -256,14 +257,22 @@ int close_ua(int fd){
 			res = write(fd, DISC, 5); // send response
 			if(res > 1){
 				unsigned char last[5];
-				res = read(fd, last, 5);
+				while(read(fd, last, 5) < 1);
 				printHexArray(last, 5);
 				if(!badUA(last)) printf("carago deu!\n");
 			}
           		STOP=TRUE;
+			free(received);
 			return 0;
 		}
+		if(res >= 1 && badDisc(received))
+		{
+			printf("bad disc received!\n");
+			free(received);
+			return -1;
+		}
 	}
+	free(received);
 	return -1;
 }
 
@@ -275,12 +284,14 @@ void close_set(int fd){
 	DISC[3] = A_SND^C_DISC;
 	unsigned char buf[5];
 
-	res = send_cycle(fd, DISC,5);
-	if(res < 1)printf("error sending disc \n");
-	res = read(fd, buf, 5);
-	if(!badDisc(DISC)){
+	res = send_cycle(fd, DISC,5, buf);
+	if(res < 1){
+		printf("Error receiving disc!\n");
+		return;
+	}
+	if(!badDisc(buf)){
 			printf("read disconnect success");
-			res = send_cycle(fd, UA, 5);
+			res = write(fd, UA, 5);
 			if(res > 1) printf("\nsent final handshake\n");
 			return;
 
