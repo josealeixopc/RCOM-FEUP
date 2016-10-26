@@ -609,7 +609,7 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 	{
 		printf("getDataFromFrame() begin:\n");
 		printf("frameIn: ");
-		printHexBuffer(frameIn, 15);
+		printHexBuffer(frameIn, 50);
 	}
 	int beginFlag = 0, endFlag = 0;
 
@@ -626,7 +626,7 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 			beginFlagPosition = i;
 			beginFlag = 1;
 
-			beginDataPosition = beginFlagPosition + 4;
+			beginDataPosition = beginFlagPosition + 5;
 			break;
 		}
 	}
@@ -638,7 +638,7 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 			endFlagPosition = i;
 			endFlag = 1;
 
-			endDataPosition = endFlagPosition - 1; // this is the byte after the last byte of data
+			endDataPosition = endFlagPosition - 2; // this is the byte after the last byte of data
 			break;
 		}
 	}
@@ -714,7 +714,7 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 		printf("End of received frame.\n");
 	}
 
-	/*unsigned char data[MAX_SIZE];
+	unsigned char data[MAX_SIZE];
 
 	size_t dataLength = getDataFromFrame(receivedFrame.array, data);
 
@@ -724,7 +724,7 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 
 	memcpy(packet, packetArray.array, packetArray.used);
 
-	printHexBuffer(packet, packetArray.used);*/
+	printHexBuffer(packet, packetArray.used);
 
 	freeArray(&receivedFrame);
 	freeArray(&dataArray);
