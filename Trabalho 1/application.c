@@ -45,6 +45,7 @@ int main(int argc, char** argv)
 	else
 	{
 		unsigned char packet[MAX_SIZE] = {};
+
 		llread(appL.fileDescriptor, packet, &linkL);
 
 		printf("Packet received begin: ");

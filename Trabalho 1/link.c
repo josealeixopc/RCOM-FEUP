@@ -563,7 +563,7 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 
 	send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
 
-	/*if(receiverReady(feedback) == 0)
+	if(receiverReady(feedback) == 0)
 	{
 		if(linkL->sequenceNumber == 1)
 		{
@@ -592,7 +592,7 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 	if(reject(feedback) == 1)
 	{
 		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
-	}*/
+	}
 
 
     freeArray(&packetArray);
@@ -662,6 +662,32 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 	
 }
 
+// [RECEIVER]
+/* Verifies the body BCC of the frame received*/
+int verifyBodyBCC(Array* frameArray)
+{
+	unsigned char BCC2 = 0x0;
+	unsigned char frameBCC2 = frameArray->array[frameArray->used - 2];
+
+	unsigned int lastDataByte = frameArray->used - 2;
+
+	for(unsigned int i = 4; i < lastDataByte; i++)	// i == 4 so it skips first bytes
+	{
+		BCC2 = BCC2 ^ (frameArray->array[i]); // verify parity of data bytes
+	}
+
+	if(DEBUG)
+	{
+		printf("Received BCC2: 0x%x; Calculated BCC2: 0x%x. Array length: %lu\n", frameBCC2, BCC2, frameArray->used);
+	}
+
+	if(BCC2 == frameBCC2)
+		return 1;
+	else
+		return 0;
+
+}
+
 int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 {
 	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
@@ -712,6 +738,11 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 		printf("Received frame: ");
 		printHexArray(&receivedFrame);
 		printf("End of received frame.\n");
+	}
+
+	if(DEBUG)
+	{
+		printf("Valid BCC2: %d\n", verifyBodyBCC(&receivedFrame));
 	}
 
 	unsigned char data[MAX_SIZE];
