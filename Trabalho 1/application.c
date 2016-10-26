@@ -6,6 +6,8 @@ Stats stats;
 
 struct termios oldtio;
 
+/******************** ALARM HANDLER *******************/
+
 int main(int argc, char** argv)
 {
     if ((argc < 3) ||
@@ -28,6 +30,8 @@ int main(int argc, char** argv)
 	{
 		printf ("linkL.port in main: %s\n", linkL.port);
 	}
+
+	(void)signal(SIGALRM, alarmHandler);
 
 	llopen(&appL, &linkL, &oldtio);
 

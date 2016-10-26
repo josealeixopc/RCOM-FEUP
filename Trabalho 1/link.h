@@ -35,12 +35,16 @@
 #define ESCAPE 0x7d
 #define XOR_BYTE 0x20
 
+//Alarm handler 
+
+void alarmHandler();
+
 // Verifying commands
 
 /* The return is 0 if the command is OK, otherwise it returns a negative number */
 int badSET(unsigned char* set);
 int badUA(unsigned char *ua);
-int badDISC(unsigned char *disc);
+int badDisc(unsigned char *disc);
 
 // Byte stuffing & unstuffing
 
@@ -59,3 +63,4 @@ int llclose(ApplicationLayer* appL, struct termios* oldtio);
 
  // [TRANSMITTER]
 int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL);
+
