@@ -63,4 +63,4 @@ int llclose(ApplicationLayer* appL, struct termios* oldtio);
 
  // [TRANSMITTER]
 int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL);
-
+int llread(int fd, unsigned char* packet, LinkLayer* linkL);

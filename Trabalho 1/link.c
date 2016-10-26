@@ -531,7 +531,7 @@ void endInformationFrame(Array* frameArray)
 
 int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 {
-    int returnValue = 0;
+    int returnValue = -1;
 
     Array packetArray;
     initArray(&packetArray, 1);
@@ -559,9 +559,170 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
         printHexArray(&stuffedArray);
     }
 
+	unsigned char feedback[5] = {};
+
+	send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+
+	/*if(receiverReady(feedback) == 0)
+	{
+		if(linkL->sequenceNumber == 1)
+		{
+			linkL->sequenceNumber = 0;
+			returnValue = 0;
+		}
+		else
+		{
+			send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);	// try again
+		}
+	}
+
+	if(receiverReady(feedback) == 1)
+	{
+		if(linkL->sequenceNumber == 0)
+		{
+			linkL->sequenceNumber = 1;
+			returnValue = 0;
+		}
+		else
+		{
+			send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);	// try again
+		}
+	}
+
+	if(reject(feedback) == 1)
+	{
+		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+	}*/
+
 
     freeArray(&packetArray);
+	freeArray(&stuffedArray);
 
     return returnValue;
+}
+
+/* Removes the header and trailer of the frame*/
+// Returns the length of the dataOut array
+int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
+{
+	if(DEBUG)
+	{
+		printf("getDataFromFrame() begin:\n");
+		printf("frameIn: ");
+		printHexBuffer(frameIn, 15);
+	}
+	int beginFlag = 0, endFlag = 0;
+
+	unsigned int beginFlagPosition = 0;
+	unsigned int endFlagPosition = 0;
+
+	unsigned int beginDataPosition = 0;
+	unsigned int endDataPosition = 0;
+
+	for(int i = 0; i < MAX_SIZE; i++)
+	{
+		if(frameIn[i] == FLAG)
+		{
+			beginFlagPosition = i;
+			beginFlag = 1;
+
+			beginDataPosition = beginFlagPosition + 4;
+			break;
+		}
+	}
+
+	for(int i = beginDataPosition ; i < MAX_SIZE - beginDataPosition ; i++)
+	{
+		if(frameIn[i] == FLAG)
+		{
+			endFlagPosition = i;
+			endFlag = 1;
+
+			endDataPosition = endFlagPosition - 1; // this is the byte after the last byte of data
+			break;
+		}
+	}
+
+	if(beginFlag == 0 || endFlag == 0)	// if one of the flags wasn't found
+		return -1;
+
+	unsigned int length = endDataPosition - beginDataPosition;
+
+	memcpy(dataOut, frameIn + beginDataPosition, length);
+	
+	if(DEBUG)
+	{
+		printf("getDataFromFrame() end:\n");
+		printf("dataOut: ");
+		printHexBuffer(dataOut, length);
+		printf("\n");
+	}
+
+	return length;
+	
+}
+
+int llread(int fd, unsigned char* packet, LinkLayer* linkL)
+{
+	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
+
+	int res;
+
+	int beginFlag = 0;
+
+	STOP=FALSE;
+
+	unsigned char readByte;
+
+	Array receivedFrame;
+	initArray(&receivedFrame, 1);
+
+	Array dataArray;
+	initArray(&dataArray, MAX_SIZE);
+
+	Array packetArray;
+	initArray(&packetArray, MAX_SIZE);
+
+	tcflush(fd, TCIOFLUSH); // REMOVING THIS CAUSES TROUBLE READING!!!
+
+	//CYCLE
+	while (STOP==FALSE)  // loop for input
+	{      
+		res = read(fd, &readByte, 1);
+
+		if(res < 0)
+			continue;
+
+		insertArray(&receivedFrame, readByte);
+
+		if(readByte == FLAG && beginFlag == 0)
+		{
+			beginFlag = 1;
+		}
+		if(readByte == FLAG && beginFlag == 1)
+		{
+			STOP = TRUE;
+		}
+	}
+
+	printHexArray(&receivedFrame);
+
+	/*unsigned char data[MAX_SIZE];
+
+	size_t dataLength = getDataFromFrame(receivedFrame.array, data);
+
+	copyArray(data, &dataArray, dataLength);
+
+	byteUnstuff(&dataArray, &packetArray);
+
+	memcpy(packet, packetArray.array, packetArray.used);
+
+	printHexBuffer(packet, packetArray.used);*/
+
+	freeArray(&receivedFrame);
+	freeArray(&dataArray);
+	freeArray(&packetArray);
+
+	return 0;
 }
 

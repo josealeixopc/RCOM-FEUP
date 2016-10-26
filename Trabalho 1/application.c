@@ -35,11 +35,20 @@ int main(int argc, char** argv)
 
 	llopen(&appL, &linkL, &oldtio);
 
-	//unsigned char test[9] = {FLAG, A_SND, C_SET, 0x1, FLAG, ESCAPE, FLAG};
+	
 
-    //llwrite(0, test, sizeof(test), &linkL);
+    if(appL.status == TRANSMITTER)
+	{
+		unsigned char test[9] = {FLAG, A_SND, C_SET, 0x1, FLAG, ESCAPE, FLAG};
+		llwrite(appL.fileDescriptor, test, sizeof(test), &linkL);
+	}
+	else
+	{
+		unsigned char packet[MAX_SIZE] = {};
+		llread(appL.fileDescriptor, packet, &linkL);
+		printHexBuffer(packet, MAX_SIZE);
+	}
 
-    //printf ("Sizeof test: %lu", sizeof(test));
 
 	llclose(&appL, &oldtio);
 
