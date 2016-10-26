@@ -84,6 +84,58 @@ int badDisc(unsigned char *disc)
   return 0;
 }
 
+int receiverReady(unsigned char* rr)
+{
+	if (rr[0] != FLAG)
+		return -1;
+
+	if (rr[1] != A_SND)
+		return -2;
+
+	if (rr[2] != RR_0 || rr[2] != RR_1)
+		return -3;
+
+
+	if (rr[4] != FLAG)
+		return -5;
+
+  	if(rr[2] == RR_0 && rr[3] == (A_SND^RR_0))
+		return 0;
+	else
+		return -4;
+
+	if(rr[2] == RR_1 && rr[3] == (A_SND^RR_1))
+		return 1;
+	else
+		return -4;
+}
+
+int reject(unsigned char* rej)
+{
+	if (rej[0] != FLAG)
+		return -1;
+
+	if (rej[1] != A_SND)
+		return -2;
+
+	if (rej[2] != REJ_1 || rej[2] != REJ_0)
+		return -3;
+
+
+	if (rej[4] != FLAG)
+		return -5;
+
+  	if (rej[2] == REJ_0 && rej[3] == (A_SND^REJ_0))
+		return 0;
+	else
+		return -4;
+
+	if( rej[2] == REJ_1 && rej[3] == (A_SND^REJ_1))
+		return 1;
+	else
+		return -4;
+}
+
 /******************** STUFFING FUNCTIONS *******************/
 
 int byteStuff(Array* inArray, Array* outArray)
@@ -149,28 +201,29 @@ int byteUnstuff(Array* inArray, Array* outArray)
 /******************** COMMUNICATION FUNCTIONS *******************/
 
 // [TRANSMITTER] Function to send a message with timeout and receive response from receiver
-// @return Result of read call
+// @return Control flag of sent response
 int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * received){
 
 	flag = 1;
-	numOfTries = -1;
+	numOfTries = 0;
 	
 	(void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
 
 	int writtenChars = 0;
+
 	if(DEBUG)
 		printf("flag: %d, numOfTries: %d\n", flag, numOfTries);
 
 	//Cycle that sends the SET bytes, while waiting for UA
-	while(1){
+	while(numOfTries < MAX_TRIES){
 		if(flag)
 		{
-			alarm(1); /* waits 3 seconds, then activates a SIGALRM */
+			alarm(3); /* waits 3 seconds, then activates a SIGALRM */
 			flag = 0; /* doesn't resend a signal until an alarm is handled */
 			
-			//tcflush(fd, TCIOFLUSH);
+			tcflush(fd, TCIOFLUSH);
 			
-			//writtenChars = write(fd, sendMsg, size); // writes the flags
+			writtenChars = write(fd, sendMsg, size); // writes the flags
 
 			if(DEBUG)
 			{
@@ -178,50 +231,17 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 				printHexBuffer(sendMsg, writtenChars);
 			}
 		}
-
-		//if(DEBUG)
-			//printf("flag: %d, numOfTries: %d\n", flag, numOfTries);
 		
-		//int res = read(fd, received, size);
-		int res = 0;
+		int res = read(fd, received, size);
+		
 
-		if(res >= 1) // if the message received is a valid UA
+		if(res >= 1) 
 		{
-			// verify what type of message is to be received
-
-			/*printf("herre");
-
-			
-			else if(sendMsg[2] == C_DISC)
-			{
-				if(!badDisc(received))
-				{
-					if(DEBUG)
-						printf("Read DISC with success!\n");
-
-					return writtenChars;
-				}
-			}
-
+			// if the messages received is a valid form of message, return, else, continue
+			if(badUA(received) == 0 || badDisc(received) == 0 || receiverReady(received) >= 0 || reject(received) >= 0)
+				return writtenChars;
 			else
-			{
-				if(DEBUG)
-					printf("Didn't read a disc or ua.\n");
 				continue;
-			}*/
-			
-			if(sendMsg[2] == C_SET)
-			{
-					
-				if(!badUA(received))
-				{
-					if(DEBUG)
-						printf("Read UA with success!\n");
-
-					//return writtenChars;
-				}
-			}
-			
 		}
 
 	}
@@ -284,7 +304,7 @@ void send_set(int fd){
 	res = send_cycle(fd, SET, 5, msg);
 
     if(res == -1) {
-    	printf("deu erro a enviar!");
+    	printf("Couldn't receive response from SET!\n");
     	exit(-1);
     }
 
