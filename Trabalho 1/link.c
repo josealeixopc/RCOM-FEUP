@@ -208,9 +208,6 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 
 	int writtenChars = 0;
 
-	if(DEBUG)
-		printf("flag: %d, numOfTries: %d\n", flag, numOfTries);
-
 	//Cycle that sends the SET bytes, while waiting for UA
 	while(numOfTries < MAX_TRIES){
 		if(flag)
@@ -223,21 +220,9 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 			tcflush(fd, TCIOFLUSH);
 			
 			writtenChars = write(fd, sendMsg, size); // writes the flags
-
-			if(DEBUG)
-			{
-				printf("Wrote msg: ");
-				printHexBuffer(sendMsg, writtenChars);
-			}
 		}
 		
 		res = read(fd, received, size);
-
-		if(DEBUG)
-		{
-			printf("Feedback: ");
-			printHexBuffer(received, size);
-		}
 		
 
 		if(res >= 1) 
@@ -265,12 +250,6 @@ void receive_set(int fd){
 
 		int res = read (fd,receivedSET, sizeof(receivedSET)); // reads the flag value
 
-		if(DEBUG)
-		{
-			printf ("%d bytes received\n", res);
-			printHexBuffer(receivedSET,5);
-		}
-
     	if (res >= 1)
 		  {
 			if (DEBUG)
@@ -282,12 +261,6 @@ void receive_set(int fd){
 				tcflush(fd, TCIOFLUSH);
 				res = write(fd, UA, 5); // send response
 				STOP=TRUE;	//end cycle
-
-				if(DEBUG)
-				{
-					printf("Sent response UA.\n");
-					printf("%d bytes written\n", res);
-				}
 
 				break;
 			}
@@ -307,7 +280,7 @@ void send_set(int fd){
 	res = send_cycle(fd, SET, 5, msg);
 
     if(res == -1) {
-    	printf("Couldn't receive response from SET!\n");
+    	printf("ERROR: Couldn't receive response after sending SET.\n");
     	exit(-1);
     }
 
@@ -316,11 +289,6 @@ void send_set(int fd){
 		if(!badUA(msg))
 		{
 			printf("Connection successful.\n");
-			if(DEBUG)
-			{
-				printf("Received valid UA.\n");
-				printHexBuffer(msg, 5);
-			}
 		}
 		else
 		{
@@ -390,11 +358,6 @@ int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio){
       exit(-1);
     }
 
-    if(DEBUG)
-    {
-      printf("New termios structure set\n");
-    }
-
 	if(appL->status == TRANSMITTER)
 		send_set(fd);
 	else
@@ -416,14 +379,7 @@ int close_ua(int fd){
 	//CYCLE
 	while (STOP==FALSE)  // loop for input
 	{
-
-	res = read (fd,received, 5); // reads the flag value
-
-	if(DEBUG)
-	{
-		printf ("%d bytes received\n", res);
-		printHexBuffer(received, 5);
-	}
+		res = read (fd,received, 5); // reads the flag value
 
 		if (res >= 1 && (!badDisc(received)))
 		{
@@ -432,19 +388,22 @@ int close_ua(int fd){
 			res = write(fd, DISC, 5); // send response
 
 			if(res > 1){
+			
 				unsigned char last[5];
 
 				while(read(fd, last, 5) < 1);
 
-				printHexBuffer(last, 5);
-
 				if(!badUA(last) && DEBUG) 
 					printf("Worked!\n");
 			}
-          		STOP=TRUE;
+				
+			STOP=TRUE;
+			
 			free(received);
+			
 			return 0;
 		}
+		
 		if(res >= 1 && badDisc(received))
 		{
 			printf("bad disc received!\n");
@@ -452,6 +411,7 @@ int close_ua(int fd){
 			return -1;
 		}
 	}
+
 	free(received);
 	return -1;
 }
@@ -471,27 +431,23 @@ void close_set(int fd){
 	}
 	if(!badDisc(buf)){
 
-			if(DEBUG)
-				printf("read disconnect success");
-
 			tcflush(fd, TCIOFLUSH);
 
 			res = write(fd, UA, 5);
 
-			if(DEBUG)
-				if(res > 1) printf("\nsent final handshake\n");
-
-			return;
+			
+			if(res > 1) 
+				return;
 
 	}
 
-	if(DEBUG)
-		printf("I'm outside the feedback loop!\n");
 }
 
 int llclose(ApplicationLayer* appL, struct termios* oldtio)
 {
     int fd = appL->fileDescriptor;
+
+	printf("Begin closing attempt...\n");
 
 	if(appL->status == TRANSMITTER) 
         close_set(fd);
@@ -505,6 +461,8 @@ int llclose(ApplicationLayer* appL, struct termios* oldtio)
     }
 
     close(fd);
+
+	printf("Closed connection.\n");
 
 	return 0;
 }
@@ -553,26 +511,14 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 
     copyArray(packet, &packetArray, length);
 
-    if(DEBUG)
-    {
-        printf("Copied array after copyArray(): ");
-        printHexArray(&packetArray);
-    }
-
     Array stuffedArray;
     initArray(&stuffedArray, 1);
 
     initializeInformationFrame(&stuffedArray, linkL);
 
-    int bytesAltered = byteStuff(&packetArray, &stuffedArray);
+    byteStuff(&packetArray, &stuffedArray);
 
     endInformationFrame(&stuffedArray);
-
-    if(DEBUG)
-    {
-        printf("Altered %d bytes in stuffing: ", bytesAltered);
-        printHexArray(&stuffedArray);
-    }
 
 	unsigned char feedback[5] = {};
 
@@ -631,12 +577,6 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 // Returns the length of the dataOut array
 int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 {
-	if(DEBUG)
-	{
-		printf("getDataFromFrame() begin:\n");
-		printf("frameIn: ");
-		printHexBuffer(frameIn, 50);
-	}
 	int beginFlag = 0, endFlag = 0;
 
 	unsigned int beginFlagPosition = 0;
@@ -675,14 +615,6 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 	unsigned int length = endDataPosition - beginDataPosition;
 
 	memcpy(dataOut, frameIn + beginDataPosition, length);
-	
-	if(DEBUG)
-	{
-		printf("getDataFromFrame() end:\n");
-		printf("dataOut: ");
-		printHexBuffer(dataOut, length);
-		printf("\n");
-	}
 
 	return length;
 	
@@ -700,11 +632,6 @@ int verifyBodyBCC(Array* frameArray)
 	for(unsigned int i = 4; i < lastDataByte; i++)	// i == 4 so it skips first bytes
 	{
 		BCC2 = BCC2 ^ (frameArray->array[i]); // verify parity of data bytes
-	}
-
-	if(DEBUG)
-	{
-		printf("Received BCC2: 0x%x; Calculated BCC2: 0x%x. Array length: %lu\n", frameBCC2, BCC2, frameArray->used);
 	}
 
 	if(BCC2 == frameBCC2)
@@ -836,17 +763,10 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 		}
 	}
 
-	if(DEBUG)
-	{
-		printf("Received frame: ");
-		printHexArray(&receivedFrame);
-		printf("End of received frame.\n");
-	}
-
 	printf("Received new frame.\n");
 
 	unsigned char feedback[5];
-
+	
 	if(generateResponse(&receivedFrame, feedback) <= 0)	// if frame has been rejected
 	{
 		freeArray(&receivedFrame);
@@ -861,12 +781,6 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 	tcflush(fd, TCIOFLUSH);
 
 	write(fd, feedback, 5);
-
-	if(DEBUG)
-	{
-		printf("Sent feedback: ");
-		printHexBuffer(feedback, 5);
-	}
 
 	unsigned char data[MAX_SIZE];
 

@@ -33,9 +33,11 @@ int main(int argc, char** argv)
 
 	(void)signal(SIGALRM, alarmHandler);
 
+	printf("Started execution...\n");
+
 	llopen(&appL, &linkL, &oldtio);
 
-	
+	printf("llopen() done with success!\n");
 
     if(appL.status == TRANSMITTER)
 	{
@@ -54,7 +56,9 @@ int main(int argc, char** argv)
 	}
 
 
-	//llclose(&appL, &oldtio);
+	llclose(&appL, &oldtio);
+
+	printf("llclose() done with success!\n");
 
     return 0;
 
