@@ -92,7 +92,7 @@ int receiverReady(unsigned char* rr)
 	if (rr[1] != A_SND)
 		return -2;
 
-	if (rr[2] != RR_0 || rr[2] != RR_1)
+	if (rr[2] != RR_0 && rr[2] != RR_1)
 		return -3;
 
 
@@ -118,7 +118,7 @@ int reject(unsigned char* rej)
 	if (rej[1] != A_SND)
 		return -2;
 
-	if (rej[2] != REJ_1 || rej[2] != REJ_0)
+	if (rej[2] != REJ_1 && rej[2] != REJ_0)
 		return -3;
 
 
@@ -206,6 +206,7 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 
 	flag = 1;
 	numOfTries = 0;
+	int res;
 	
 	(void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
 
@@ -232,16 +233,18 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 			}
 		}
 		
-		int res = read(fd, received, size);
+		res = read(fd, received, size);
+
+		if(DEBUG)
+		{
+			printf("Feedback: ");
+			printHexBuffer(received, size);
+		}
 		
 
 		if(res >= 1) 
 		{
-			// if the messages received is a valid form of message, return, else, continue
-			if(badUA(received) == 0 || badDisc(received) == 0 || receiverReady(received) >= 0 || reject(received) >= 0)
-				return writtenChars;
-			else
-				continue;
+			return writtenChars;
 		}
 
 	}
@@ -279,14 +282,15 @@ void receive_set(int fd){
 
         if(!badSET(receivedSET))
         {
-          res = write(fd, UA, 5); // send response
-          STOP=TRUE;	//end cycle
+			tcflush(fd, TCIOFLUSH);
+			res = write(fd, UA, 5); // send response
+			STOP=TRUE;	//end cycle
 
-          if(DEBUG)
-          {
-            printf("Sent response UA.\n");
-            printf("%d bytes written\n", res);
-          }
+			if(DEBUG)
+			{
+				printf("Sent response UA.\n");
+				printf("%d bytes written\n", res);
+			}
         }
 
         break;
@@ -310,10 +314,17 @@ void send_set(int fd){
 
 	else
 	{
-		if(DEBUG)
+		if(!badUA(msg))
 		{
-			printf("Received valid UA.\n");
-			printHexBuffer(msg, 5);
+			if(DEBUG)
+			{
+				printf("Received valid UA.\n");
+				printHexBuffer(msg, 5);
+			}
+		}
+		else
+		{
+			printf("Bad UA.\n");
 		}
 	}
 	
@@ -416,6 +427,8 @@ int close_ua(int fd){
 
 		if (res >= 1 && (!badDisc(received)))
 		{
+			tcflush(fd, TCIOFLUSH);
+
 			res = write(fd, DISC, 5); // send response
 
 			if(res > 1){
@@ -460,6 +473,8 @@ void close_set(int fd){
 
 			if(DEBUG)
 				printf("read disconnect success");
+
+			tcflush(fd, TCIOFLUSH);
 
 			res = write(fd, UA, 5);
 
@@ -562,6 +577,7 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 	unsigned char feedback[5] = {};
 
 	send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+
 
 	if(receiverReady(feedback) == 0)
 	{
@@ -688,6 +704,81 @@ int verifyBodyBCC(Array* frameArray)
 
 }
 
+// [RECEIVER]
+/* Get frame sequence number*/
+int getFrameSequenceNumber(Array* frameArray)
+{
+	if(frameArray->array[2] == C_FRAME_0)
+	{
+		return 0;
+	}
+
+	if(frameArray->array[2] == C_FRAME_1)
+	{
+		return 1;
+	}
+
+	return -1;
+
+}
+
+// [RECEIVER]
+/* Decides what array to send as a response */
+/* Returns negative value if frame is to be rejected */
+int generateResponse(Array* frameArray, unsigned char* response)
+{
+	int ret = 0;
+
+	response[0] = FLAG;
+	response[1] = A_SND;
+
+	if(!verifyBodyBCC(frameArray))
+	{
+		if(getFrameSequenceNumber(frameArray) == 1)
+		{
+			response[2] = REJ_1;
+			ret = -1;
+		}
+
+		else if(getFrameSequenceNumber(frameArray) == 0)
+		{
+			response[2] = REJ_0;
+			ret = -2;
+		}
+
+		else
+		{
+			printf("Invalid frame sequence number received.\n");
+		}
+		
+	}
+	else
+	{
+		if(getFrameSequenceNumber(frameArray) == 1)
+		{
+			response[2] = RR_0;
+			ret = 1;
+		}
+
+		else if(getFrameSequenceNumber(frameArray) == 0)
+		{
+			response[2] = RR_1;
+			ret = 2;
+		}
+
+		else
+		{
+			printf("Invalid frame sequence number received.\n");
+		}
+	}
+
+	response[3] = response[1]^response[2];
+
+	response[4] = FLAG;
+	
+	return ret;
+}
+
 int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 {
 	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
@@ -740,9 +831,25 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 		printf("End of received frame.\n");
 	}
 
+	unsigned char feedback[5];
+
+	if(generateResponse(&receivedFrame, feedback) <= 0)	// if frame has been rejected
+	{
+		freeArray(&receivedFrame);
+		freeArray(&dataArray);
+		freeArray(&packetArray);
+
+		return -1;
+	}
+
+	tcflush(fd, TCIOFLUSH);
+
+	write(fd, feedback, 5);
+
 	if(DEBUG)
 	{
-		printf("Valid BCC2: %d\n", verifyBodyBCC(&receivedFrame));
+		printf("Sent feedback: ");
+		printHexBuffer(feedback, 5);
 	}
 
 	unsigned char data[MAX_SIZE];
