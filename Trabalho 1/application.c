@@ -41,18 +41,21 @@ int main(int argc, char** argv)
 
     if(appL.status == TRANSMITTER)
 	{
-		unsigned char test[15] = {0x20, 0x30, 0x12, FLAG, A_SND, C_SET, 0x1, FLAG, ESCAPE, FLAG};
+		unsigned char test[10] = {0x20, 0x30, 0x12, FLAG, A_SND, C_SET, 0x1, FLAG, ESCAPE, 0x1};
 		llwrite(appL.fileDescriptor, test, sizeof(test), &linkL);
 	}
 	else
 	{
-		unsigned char packet[MAX_SIZE] = {};
+		size_t packetLength = 1;
+		unsigned char* packet = (unsigned char*) malloc (packetLength * sizeof(unsigned char));
 
-		llread(appL.fileDescriptor, packet, &linkL);
+		llread(appL.fileDescriptor, packet, &packetLength, &linkL);
 
 		printf("Packet received begin: ");
-		printHexBuffer(packet, MAX_SIZE);
+		printHexBuffer(packet, packetLength);
 		printf("Packet received end.\n");
+
+		free(packet); // importanteee!
 	}
 
 

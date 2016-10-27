@@ -502,14 +502,14 @@ void endInformationFrame(Array* frameArray)
 
 /******************** SEND & RECEIVE FUNCTIONS *******************/
 
-int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
+int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL)
 {
     int returnValue;
 
     Array packetArray;
     initArray(&packetArray, 1);
 
-    copyArray(packet, &packetArray, length);
+    copyArray(packet, &packetArray, packetLength);
 
     Array stuffedArray;
     initArray(&stuffedArray, 1);
@@ -716,7 +716,7 @@ int generateResponse(Array* frameArray, unsigned char* response)
 	return ret;
 }
 
-int llread(int fd, unsigned char* packet, LinkLayer* linkL)
+int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL)
 {
 	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
 
@@ -766,7 +766,7 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 	printf("Received new frame.\n");
 
 	unsigned char feedback[5];
-	
+
 	if(generateResponse(&receivedFrame, feedback) <= 0)	// if frame has been rejected
 	{
 		freeArray(&receivedFrame);
@@ -789,6 +789,10 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 	copyArray(data, &dataArray, dataLength);
 
 	byteUnstuff(&dataArray, &packetArray);
+
+	(*packetLength) = packetArray.used;
+
+	packet = (unsigned char*) realloc (packet, packetArray.used * sizeof(unsigned char));
 
 	memcpy(packet, packetArray.array, packetArray.used);
 
