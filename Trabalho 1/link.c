@@ -576,7 +576,7 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 
 	unsigned char feedback[5] = {};
 
-	printf("Begin send frame #%d: ", linkL->sequenceNumber);
+	printf("Begin to send frame #%d: ", linkL->sequenceNumber);
 	printHexArray(&stuffedArray);
 
 	send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
@@ -812,6 +812,8 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 
 	tcflush(fd, TCIOFLUSH); // REMOVING THIS CAUSES TROUBLE READING!!!
 
+	printf("Begin receiving...\n");
+
 	//CYCLE
 	while (STOP==FALSE)  // loop for input
 	{      
@@ -841,6 +843,8 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 		printf("End of received frame.\n");
 	}
 
+	printf("Received new frame.\n");
+
 	unsigned char feedback[5];
 
 	if(generateResponse(&receivedFrame, feedback) <= 0)	// if frame has been rejected
@@ -848,6 +852,8 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 		freeArray(&receivedFrame);
 		freeArray(&dataArray);
 		freeArray(&packetArray);
+
+		printf("Frame discarded.\n\n");
 
 		return -1;	// discard current frame
 	}
@@ -877,6 +883,8 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 	freeArray(&receivedFrame);
 	freeArray(&dataArray);
 	freeArray(&packetArray);
+
+	printf("Frame accepted.\n\n");
 
 	return 0;
 }
