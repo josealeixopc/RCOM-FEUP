@@ -1,4 +1,5 @@
 #include "link.h"
+#include "interface.h"
 
 #define FILE_SIZE 1
 #define NAME_SIZE 2

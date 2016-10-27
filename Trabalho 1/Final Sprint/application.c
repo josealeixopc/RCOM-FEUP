@@ -1,5 +1,4 @@
 #include "application.h"
-#include "menu.c"
 
 ApplicationLayer appL;
 LinkLayer linkL;
