@@ -104,7 +104,7 @@ int receiverReady(unsigned char* rr)
 
 	if(rr[2] == RR_1 && rr[3] == (A_SND^RR_1))
 		return 1;
-	
+
 	return -5;
 }
 
@@ -172,7 +172,7 @@ int byteUnstuff(Array* inArray, Array* outArray)
         if ((inArray->array[i] == ESCAPE) && (inArray->array[i+1] == (FLAG^XOR_BYTE)))
         {
             insertArray(outArray, FLAG);
-           
+
             i++; // to skip next byte evaluation
             count++;
         }
@@ -180,7 +180,7 @@ int byteUnstuff(Array* inArray, Array* outArray)
         else if ((inArray->array[i] == ESCAPE) && (inArray->array[i+1] == (ESCAPE^XOR_BYTE)))
         {
             insertArray(outArray, ESCAPE);
-            
+
             i++;
             count++;
         }
@@ -203,7 +203,7 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 	flag = 1;
 	numOfTries = 0;
 	int res;
-	
+
 	(void)signal(SIGALRM, alarmHandler); /* sets alarmHandler function as SIGALRM handler*/
 
 	int writtenChars = 0;
@@ -216,16 +216,16 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 
 			alarm(3); /* waits 3 seconds, then activates a SIGALRM */
 			flag = 0; /* doesn't resend a signal until an alarm is handled */
-			
+
 			tcflush(fd, TCIOFLUSH);
-			
+
 			writtenChars = write(fd, sendMsg, size); // writes the flags
 		}
-		
-		res = read(fd, received, size);
-		
 
-		if(res >= 1) 
+		res = read(fd, received, size);
+
+
+		if(res >= 1)
 		{
 			return writtenChars;
 		}
@@ -241,7 +241,7 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 void receive_set(int fd){
 
   	unsigned char receivedSET[5];	// array to store SET bytes
-	
+
     STOP = FALSE;
 
 	//CYCLE
@@ -295,7 +295,7 @@ void send_set(int fd){
 			printf("Bad UA.\n");
 		}
 	}
-	
+
 }
 
 /******************** CONFIGURE CONNECTION FUNCTIONS *******************/
@@ -369,8 +369,8 @@ int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio){
 int close_ua(int fd){
 	int res;
 	tcflush(fd, TCIOFLUSH);
-	
-	unsigned char * received = malloc(5*sizeof(unsigned char));	// array to store SET bytes
+
+	unsigned char * received = malloc(5*sizeof(unsigned char * ));	// array to store SET bytes
 	unsigned char * DISC = UA;
 	DISC[2] = C_DISC;
 	DISC[3] = A_SND^C_DISC;
@@ -388,22 +388,22 @@ int close_ua(int fd){
 			res = write(fd, DISC, 5); // send response
 
 			if(res > 1){
-			
+
 				unsigned char last[5];
 
 				while(read(fd, last, 5) < 1);
 
-				if(!badUA(last) && DEBUG) 
+				if(!badUA(last) && DEBUG)
 					printf("Worked!\n");
 			}
-				
+
 			STOP=TRUE;
-			
+
 			free(received);
-			
+
 			return 0;
 		}
-		
+
 		if(res >= 1 && badDisc(received))
 		{
 			printf("bad disc received!\n");
@@ -435,8 +435,8 @@ void close_set(int fd){
 
 			res = write(fd, UA, 5);
 
-			
-			if(res > 1) 
+
+			if(res > 1)
 				return;
 
 	}
@@ -449,9 +449,9 @@ int llclose(ApplicationLayer* appL, struct termios* oldtio)
 
 	printf("Begin closing attempt...\n");
 
-	if(appL->status == TRANSMITTER) 
+	if(appL->status == TRANSMITTER)
         close_set(fd);
-	else 
+	else
         close_ua(fd);
 
 
@@ -617,7 +617,7 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 	memcpy(dataOut, frameIn + beginDataPosition, length);
 
 	return length;
-	
+
 }
 
 // [RECEIVER]
@@ -687,7 +687,7 @@ int generateResponse(Array* frameArray, unsigned char* response)
 		{
 			printf("Invalid frame sequence number received.\n");
 		}
-		
+
 	}
 	else
 	{
@@ -712,15 +712,13 @@ int generateResponse(Array* frameArray, unsigned char* response)
 	response[3] = (response[1] ^ response[2]);
 
 	response[4] = FLAG;
-	
+
 	return ret;
 }
 
 int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL)
 {
 	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
-
-	printf("Got here!\n");
 
 	int res;
 
@@ -745,7 +743,7 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	//CYCLE
 	while (STOP==FALSE)  // loop for input
-	{      
+	{
 		res = read(fd, &readByte, 1);
 
 		if(res <= 0)
@@ -808,4 +806,3 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	return 0;
 }
-

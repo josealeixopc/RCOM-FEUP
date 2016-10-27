@@ -1,4 +1,5 @@
 #include "application.h"
+#include "menu.c"
 
 ApplicationLayer appL;
 LinkLayer linkL;
@@ -35,6 +36,8 @@ int main(int argc, char** argv)
 
   //fazer cena do menu, adicionar variaveis e chamar os pros para saber o que alterar xD XD
 
+
+
 	(void)signal(SIGALRM, alarmHandler);
 
 	printf("Started execution...\n");
@@ -62,6 +65,8 @@ int main(int argc, char** argv)
     return 0;
 
 }
+
+
 
 long int verifyControlData(unsigned char * data ,char * file_name, int value){
   if(data[0] != value)
@@ -102,7 +107,7 @@ int writeToFile(unsigned char * trama, int file_d, int * n_trama){
   *(n_trama) += 1;
   long int length_of_trama = 256 * trama[2] + trama[3]; // K = 256 * L2 + L1
 
-  write(file_d, &trama[4], length_of_trama);
+  write(file_d, &trama[4], length_of_trama-4);
 
   return length_of_trama;
 
@@ -112,8 +117,8 @@ void receiveFile(){
 
   //ll_read(cenas);
   size_t size_trama = 1;
-  unsigned char * initialData = malloc(sizeof(unsigned char) * size_trama);
-  char * file_name = malloc(sizeof(char) * MAX_SIZE);
+  unsigned char * initialData = malloc(sizeof(unsigned char *) * size_trama);
+  char * file_name = malloc(sizeof( char *) * MAX_SIZE);
   llread(appL.fileDescriptor, initialData, &size_trama, &linkL );
 
 
@@ -126,15 +131,18 @@ void receiveFile(){
   free(initialData);
 
   int file_d = open(file_name, O_WRONLY | O_TRUNC | O_CREAT, 0660);
-	int size_received = 0;
-  int * n_trama = malloc(sizeof(int)); //possivelmente a coisa mais estupida que ja fiz na vida
+	long int size_received = 0;
+  int * n_trama = malloc(sizeof(int *)); //possivelmente a coisa mais estupida que ja fiz na vida
   * n_trama = 0;
   int received = FALSE;
 
   while(received == FALSE){
-    initialData = malloc(sizeof(unsigned char));
+    initialData = malloc(sizeof(unsigned char *) *  21474836 );
     size_trama = 1;
+
+
     int i = llread(appL.fileDescriptor, initialData, &size_trama, &linkL);
+
     if(i == 0){
       if(verifyControlData(initialData, file_name, END_CONTROL) > 1)
       {
@@ -146,13 +154,23 @@ void receiveFile(){
       }
 
     }
-    free(initialData);
-  }
 
+    free(initialData);
+
+  }
+  printf("Final result =%ld, expecetd = %ld\n",size_received,file_size_expected);
   free(n_trama);
   free(file_name);
 	close(file_d);
 }
+
+
+
+
+
+
+
+
 
 void createControlPackage(unsigned char * pack, long int size,  char * filename, int valor){
     pack[0] = valor; //C
@@ -174,7 +192,7 @@ void createDataPackage(unsigned char * pack, unsigned char * info_trama, int n_t
   pack[2] = size_trama / 256; //l2
   pack[3] = size_trama % 256; //l1
 
-  memcpy(&(pack[4]), info_trama, size_trama);
+  memcpy(&pack[4], info_trama, size_trama);
 }
 
 void loadFile(char * filename){
@@ -196,19 +214,23 @@ void loadFile(char * filename){
   //write(appL.fileDescriptor, packageInit, 11 + strlen(filename));
   llwrite(appL.fileDescriptor, packageInit, 11 + strlen(filename), &linkL);
 
+
+
 	//cenas para enviar copotes de controlo
 	//definir de quanto espaço enviar por enquanto esta o valor hardcoded
-	int frame_size = frame_size_default;
+  int frame_size = frame_size_default;//4 tags
 	int bytes_sent = 0;
 	int n_trama = 0;
   free(packageInit);
-	while(bytes_sent < size){
+
+  while(bytes_sent < size-4){
 		int send_size = (size - bytes_sent) > frame_size ? frame_size : size-bytes_sent;
-    unsigned char * trama = malloc(sizeof(unsigned char) * send_size);
-    createDataPackage(trama, &file_inside[bytes_sent], n_trama, send_size-4);
+    unsigned char * trama = malloc(sizeof(unsigned char *) * (send_size+16));
+    createDataPackage(trama, &file_inside[bytes_sent], n_trama, send_size);
     llwrite(appL.fileDescriptor, trama, send_size, &linkL);
+    //sleep(1);
     free(trama);
-		bytes_sent += send_size-4;
+    bytes_sent += send_size-4;
     printf("trama %d\n", n_trama);
     n_trama++;
 	}
