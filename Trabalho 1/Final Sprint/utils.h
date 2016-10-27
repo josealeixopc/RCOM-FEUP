@@ -61,5 +61,3 @@ void freeArray(Array *a);
 /* Prints array elements in hexadecimal form*/
 void printHexArray(Array* array);
 void printHexBuffer(unsigned char* array, size_t length);
-
-
