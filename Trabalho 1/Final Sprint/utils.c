@@ -26,7 +26,8 @@ void insertArray(Array *a, unsigned char element) {
 /* Puts a C array in a struct Array */
 void copyArray(unsigned char* source, Array* destiny, size_t length)
 {
-	for(int i = 0; i < length; i++)
+    int i;
+	for(i = 0; i < length; i++)
     {      
         insertArray(destiny, source[i]);
     }
@@ -41,7 +42,8 @@ void freeArray(Array *a) {
 
 void printHexArray(Array* array)
 {
-	for(unsigned int i = 0; i < array->used; i++)
+    unsigned int i;
+	for(i = 0; i < array->used; i++)
 	{
 		printf ("0x%x ", array->array[i]);
 	}
@@ -51,7 +53,9 @@ void printHexArray(Array* array)
 
 void printHexBuffer(unsigned char* array, size_t length)
 {
-    for(unsigned int i = 0; i < length; i++)
+    unsigned int i;
+
+    for(i = 0; i < length; i++)
 	{
 		printf ("0x%x ", array[i]);
 	}

@@ -4,9 +4,9 @@
 ApplicationLayer appL;
 LinkLayer linkL;
 Stats stats;
-int frame_size_default = 100;
+int frame_size_default = 150;
 struct termios oldtio;
-char nome_ficheiro_enviar[MAX_SIZE] = "bananas";
+char nome_ficheiro_enviar[MAX_SIZE] = "pinguim.gif";
 
 void loadFile(char * filename);
 void receiveFile();
@@ -100,7 +100,7 @@ int writeToFile(unsigned char * trama, int file_d, int * n_trama){
     printf("Not a Data package!\n");
     return 0;
   }
-  if(*(n_trama) != trama[1]){
+  if((*(n_trama)%255) != trama[1]){
     printf("Incorrect Trama, next try please\n");
     return 0;
   }
@@ -165,13 +165,6 @@ void receiveFile(){
 }
 
 
-
-
-
-
-
-
-
 void createControlPackage(unsigned char * pack, long int size,  char * filename, int valor){
     pack[0] = valor; //C
   	pack[1] = FILE_SIZE; //TYPE
@@ -212,8 +205,23 @@ void loadFile(char * filename){
   unsigned char * packageInit = malloc(10 + strlen(filename) + 1);
   createControlPackage(packageInit,size,filename,CRUISE_CONTROL);
   //write(appL.fileDescriptor, packageInit, 11 + strlen(filename));
-  llwrite(appL.fileDescriptor, packageInit, 11 + strlen(filename), &linkL);
+  while(1)
+  {
+    int value;
+    
+    value =llwrite(appL.fileDescriptor, packageInit, 11 + strlen(filename), &linkL);
+  
+    printf("%d\n", value);
 
+    if(value == 0)
+    {
+      break;
+    }
+    else
+    {
+      continue;
+    }
+  }
 
 
 	//cenas para enviar copotes de controlo
@@ -226,7 +234,7 @@ void loadFile(char * filename){
   while(bytes_sent < size-4){
 		int send_size = (size - bytes_sent) > frame_size ? frame_size : size-bytes_sent;
     unsigned char * trama = malloc(sizeof(unsigned char *) * (send_size+16));
-    createDataPackage(trama, &file_inside[bytes_sent], n_trama, send_size);
+    createDataPackage(trama, &file_inside[bytes_sent], (n_trama % 255), send_size);
     llwrite(appL.fileDescriptor, trama, send_size, &linkL);
     //sleep(1);
     free(trama);

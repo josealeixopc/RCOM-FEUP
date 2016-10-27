@@ -138,7 +138,9 @@ int byteStuff(Array* inArray, Array* outArray)
 {
     int count = 0;
 
-    for(int i = 0; i < inArray->used; i++)
+	int i;
+
+    for(i = 0; i < inArray->used; i++)
     {
         if (inArray->array[i] == FLAG)
         {
@@ -166,8 +168,9 @@ int byteStuff(Array* inArray, Array* outArray)
 int byteUnstuff(Array* inArray, Array* outArray)
 {
     int count = 0;
+	int i;
 
-    for(int i = 0; i < inArray->used; i++)
+    for(i = 0; i < inArray->used; i++)
     {
         if ((inArray->array[i] == ESCAPE) && (inArray->array[i+1] == (FLAG^XOR_BYTE)))
         {
@@ -490,8 +493,9 @@ void initializeInformationFrame(Array* frameArray, LinkLayer* linkL)
 void endInformationFrame(Array* frameArray)
 {
 	char BCC2 = 0x0;
+	unsigned int i;
 
-	for(unsigned int i = 4; i < frameArray->used; i++)	// i == 4 so it skips first bytes
+	for(i = 4; i < frameArray->used; i++)	// i == 4 so it skips first bytes
 	{
 		BCC2 = BCC2 ^ (frameArray->array[i]); // verify parity of data bytes
 	}
@@ -557,15 +561,12 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 
 	int i = 0;
 
-	while(reject(feedback) == 1 && i < 10)
+	while(reject(feedback) == (linkL->sequenceNumber) && i < 10)
 	{
 		printf("Frame %d rejected. Sending again.\n", linkL->sequenceNumber);
 		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
 		i++;
 	}
-
-	if(reject(feedback) == 1)
-		returnValue = -3;
 
     freeArray(&packetArray);
 	freeArray(&stuffedArray);
@@ -585,7 +586,9 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 	unsigned int beginDataPosition = 0;
 	unsigned int endDataPosition = 0;
 
-	for(int i = 0; i < MAX_SIZE; i++)
+	int i;
+
+	for(i = 0; i < MAX_SIZE; i++)
 	{
 		if(frameIn[i] == FLAG)
 		{
@@ -597,7 +600,7 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 		}
 	}
 
-	for(int i = beginDataPosition ; i < MAX_SIZE - beginDataPosition ; i++)
+	for(i = beginDataPosition ; i < MAX_SIZE - beginDataPosition ; i++)
 	{
 		if(frameIn[i] == FLAG)
 		{
@@ -629,7 +632,9 @@ int verifyBodyBCC(Array* frameArray)
 
 	unsigned int lastDataByte = frameArray->used - 2;
 
-	for(unsigned int i = 4; i < lastDataByte; i++)	// i == 4 so it skips first bytes
+	unsigned int i;
+
+	for(i = 4; i < lastDataByte; i++)	// i == 4 so it skips first bytes
 	{
 		BCC2 = BCC2 ^ (frameArray->array[i]); // verify parity of data bytes
 	}
