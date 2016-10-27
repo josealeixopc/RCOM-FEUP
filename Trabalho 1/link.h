@@ -61,6 +61,10 @@ int byteUnstuff(Array* inArray, Array* outArray);
 int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio);
 int llclose(ApplicationLayer* appL, struct termios* oldtio);
 
- // [TRANSMITTER]
+// [TRANSMITTER]
+/* Returns 0 on success. Otherwise, returns a negative value */
 int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL);
+
+// [RECEIVER]
+/* Returns 0 if current frame is correct. Returns -1 if it is to be discarded. */
 int llread(int fd, unsigned char* packet, LinkLayer* linkL);

@@ -605,7 +605,7 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 		}
 		else
 		{
-			returnValue = -1;
+			returnValue = -2;
 		}
 	}
 
@@ -617,6 +617,9 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
 		i++;
 	}
+
+	if(reject(feedback) == 1)
+		returnValue = -3;
 
     freeArray(&packetArray);
 	freeArray(&stuffedArray);
@@ -846,7 +849,7 @@ int llread(int fd, unsigned char* packet, LinkLayer* linkL)
 		freeArray(&dataArray);
 		freeArray(&packetArray);
 
-		return -1;
+		return -1;	// discard current frame
 	}
 
 	tcflush(fd, TCIOFLUSH);
