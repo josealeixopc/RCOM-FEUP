@@ -14,7 +14,7 @@
 
 #define MAX_SIZE 255
 
-#define DEBUG 1
+#define DEBUG 0
 
 typedef struct {
 	int fileDescriptor; /*Descritor correspondente à porta série*/

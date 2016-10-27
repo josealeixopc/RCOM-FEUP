@@ -97,17 +97,15 @@ int receiverReady(unsigned char* rr)
 
 
 	if (rr[4] != FLAG)
-		return -5;
+		return -4;
 
   	if(rr[2] == RR_0 && rr[3] == (A_SND^RR_0))
 		return 0;
-	else
-		return -4;
 
 	if(rr[2] == RR_1 && rr[3] == (A_SND^RR_1))
 		return 1;
-	else
-		return -4;
+	
+	return -5;
 }
 
 int reject(unsigned char* rej)
@@ -123,17 +121,15 @@ int reject(unsigned char* rej)
 
 
 	if (rej[4] != FLAG)
-		return -5;
+		return -4;
 
   	if (rej[2] == REJ_0 && rej[3] == (A_SND^REJ_0))
 		return 0;
-	else
-		return -4;
 
 	if( rej[2] == REJ_1 && rej[3] == (A_SND^REJ_1))
 		return 1;
-	else
-		return -4;
+
+	return -5;
 }
 
 /******************** STUFFING FUNCTIONS *******************/
@@ -219,6 +215,8 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 	while(numOfTries < MAX_TRIES){
 		if(flag)
 		{
+			printf("Try #%d\n", numOfTries+1);
+
 			alarm(3); /* waits 3 seconds, then activates a SIGALRM */
 			flag = 0; /* doesn't resend a signal until an alarm is handled */
 			
@@ -275,25 +273,24 @@ void receive_set(int fd){
 
     	if (res >= 1)
 		  {
-        if (DEBUG)
-          printf ("badSET = %d\n", badSET(receivedSET));
+			if (DEBUG)
+			printf ("badSET = %d\n", badSET(receivedSET));
 
 
-
-        if(!badSET(receivedSET))
-        {
-			tcflush(fd, TCIOFLUSH);
-			res = write(fd, UA, 5); // send response
-			STOP=TRUE;	//end cycle
-
-			if(DEBUG)
+			if(!badSET(receivedSET))
 			{
-				printf("Sent response UA.\n");
-				printf("%d bytes written\n", res);
-			}
-        }
+				tcflush(fd, TCIOFLUSH);
+				res = write(fd, UA, 5); // send response
+				STOP=TRUE;	//end cycle
 
-        break;
+				if(DEBUG)
+				{
+					printf("Sent response UA.\n");
+					printf("%d bytes written\n", res);
+				}
+
+				break;
+			}
     	}
 	}
 }
@@ -304,6 +301,8 @@ void send_set(int fd){
 
 	int res;
 	unsigned char msg[5];
+
+	printf("Begin connection.\n");
 
 	res = send_cycle(fd, SET, 5, msg);
 
@@ -316,6 +315,7 @@ void send_set(int fd){
 	{
 		if(!badUA(msg))
 		{
+			printf("Connection successful.\n");
 			if(DEBUG)
 			{
 				printf("Received valid UA.\n");
@@ -546,7 +546,7 @@ void endInformationFrame(Array* frameArray)
 
 int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 {
-    int returnValue = -1;
+    int returnValue;
 
     Array packetArray;
     initArray(&packetArray, 1);
@@ -576,19 +576,22 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 
 	unsigned char feedback[5] = {};
 
-	send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+	printf("Begin send frame #%d: ", linkL->sequenceNumber);
+	printHexArray(&stuffedArray);
 
+	send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
 
 	if(receiverReady(feedback) == 0)
 	{
 		if(linkL->sequenceNumber == 1)
 		{
+			printf("Frame #%d sent with success!\n\n", linkL->sequenceNumber);
 			linkL->sequenceNumber = 0;
 			returnValue = 0;
 		}
 		else
 		{
-			send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);	// try again
+			returnValue = -1;
 		}
 	}
 
@@ -596,20 +599,24 @@ int llwrite(int fd, unsigned char* packet, size_t length, LinkLayer* linkL)
 	{
 		if(linkL->sequenceNumber == 0)
 		{
+			printf("Frame #%d sent with success!\n", linkL->sequenceNumber);
 			linkL->sequenceNumber = 1;
 			returnValue = 0;
 		}
 		else
 		{
-			send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);	// try again
+			returnValue = -1;
 		}
 	}
 
-	if(reject(feedback) == 1)
-	{
-		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
-	}
+	int i = 0;
 
+	while(reject(feedback) == 1 && i < 10)
+	{
+		printf("Frame %d rejected. Sending again.\n", linkL->sequenceNumber);
+		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+		i++;
+	}
 
     freeArray(&packetArray);
 	freeArray(&stuffedArray);
@@ -772,7 +779,7 @@ int generateResponse(Array* frameArray, unsigned char* response)
 		}
 	}
 
-	response[3] = response[1]^response[2];
+	response[3] = (response[1] ^ response[2]);
 
 	response[4] = FLAG;
 	
