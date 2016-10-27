@@ -41,7 +41,7 @@ int main(int argc, char** argv)
 
     if(appL.status == TRANSMITTER)
 	{
-		unsigned char test[10] = {0x20, 0x30, 0x12, FLAG, A_SND, C_SET, 0x1, FLAG, ESCAPE, 0x1};
+		unsigned char test[5] = {FLAG, ESCAPE, FLAG, FLAG, ESCAPE};
 		llwrite(appL.fileDescriptor, test, sizeof(test), &linkL);
 	}
 	else
