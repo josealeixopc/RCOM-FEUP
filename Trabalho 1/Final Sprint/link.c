@@ -146,22 +146,22 @@ int supervisionSM(int fd, unsigned char* frame)
 	return state;
 }
 
-int informationSM(int fd, unsigned char* frame)
+int informationSM(int fd, Array* frameArray)
 {
 	int i = 0;	// index of the char being written
 	int state = 0;
 
 	int complete = FALSE; // whether the frame is complete or not
 
-	int res = 0;
+	int r = 0;
+
+	unsigned char readByte = 20;
 
 	while(!complete)
-	{
-		unsigned char readByte;	
+	{	
+		r = read(fd, &readByte, 1);
 
-		res = read(fd, &readByte, 1);
-
-		if(res == -1)
+		if(r <= 0)
 		{
 			continue; 	// if no byte is received, try to read again
 		}
@@ -171,7 +171,7 @@ int informationSM(int fd, unsigned char* frame)
 			case 0:
 				if (readByte == FLAG)
 				{
-					frame[i] = readByte;
+					insertArray(frameArray, readByte);
 
 					i++; 
 					state++;
@@ -180,9 +180,9 @@ int informationSM(int fd, unsigned char* frame)
 				break;
 			
 			case 1:
-				if(readByte == A_SND)
+				if(readByte == A_SND || readByte == A_RCV)
 				{
-					frame[i] = readByte;
+					insertArray(frameArray, readByte);
 
 					i++;
 					state++;
@@ -198,7 +198,7 @@ int informationSM(int fd, unsigned char* frame)
 			case 2:
 				if(readByte == C_FRAME_0 || readByte == C_FRAME_1)
 				{
-					frame[i] = readByte;
+					insertArray(frameArray, readByte);
 
 					i++;
 					state++;
@@ -219,9 +219,9 @@ int informationSM(int fd, unsigned char* frame)
 				break;
 
 			case 3:
-				if(readByte == (frame[1] ^ frame[2]))
+				if(readByte == (frameArray->array[1] ^ frameArray->array[2]))
 				{
-					frame[i] = readByte;
+					insertArray(frameArray, readByte);
 
 					i++;
 					state++;
@@ -244,14 +244,14 @@ int informationSM(int fd, unsigned char* frame)
 			case 4:
 				if(readByte == FLAG)
 				{
-					frame[i] = readByte;
+					insertArray(frameArray, readByte);
 
 					i++;
 					complete = TRUE;
 				}
 				else
 				{
-					frame[i] = readByte; // read information while FLAG does not appear
+					insertArray(frameArray, readByte); // read information while FLAG does not appear
 					i++;
 				}
 
@@ -577,7 +577,7 @@ int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio){
 
 	initSetFrame(appL, linkL);
 
-    fd = open(linkL->port, O_RDWR | O_NOCTTY );
+    fd = open(linkL->port, O_RDWR | O_NOCTTY);
     if (fd <0) {perror(linkL->port); exit(-1); }
 
     appL->fileDescriptor = fd;
@@ -730,7 +730,6 @@ void initializeInformationFrame(Array* frameArray, LinkLayer* linkL)
         insertArray(frameArray, C_FRAME_1);
     }
 
-	insertArray(frameArray, C_SET);
 	insertArray(frameArray, (frameArray->array[1] ^ frameArray->array[2])); // header BCC
 }
 
@@ -839,7 +838,7 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 			beginFlagPosition = i;
 			beginFlag = 1;
 
-			beginDataPosition = beginFlagPosition + 5;
+			beginDataPosition = beginFlagPosition + 4;
 			break;
 		}
 	}
@@ -969,14 +968,6 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 {
 	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
 
-	int res;
-
-	int beginFlag = 0;
-
-	STOP=FALSE;
-
-	unsigned char readByte;
-
 	Array receivedFrame;
 	initArray(&receivedFrame, 1);
 
@@ -986,33 +977,16 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 	Array packetArray;
 	initArray(&packetArray, MAX_SIZE);
 
-	tcflush(fd, TCIOFLUSH); // REMOVING THIS CAUSES TROUBLE READING!!!
-
 	printf("Begin receiving...\n");
 
-	//CYCLE
-	while (STOP==FALSE)  // loop for input
-	{
-		res = read(fd, &readByte, 1);
+	informationSM(fd, &receivedFrame);
 
-		if(res <= 0)
-			continue;
-
-		insertArray(&receivedFrame, readByte);
-
-		if(readByte == FLAG && beginFlag == 0)
-		{
-			beginFlag = 1;
-			continue;
-		}
-		if(readByte == FLAG && beginFlag == 1)
-		{
-			STOP = TRUE;
-			continue;
-		}
-	}
+	printHexArray(&receivedFrame);
+	printf("Used: %lu\n", receivedFrame.used);
 
 	printf("Received new frame.\n");
+
+	printHexArray(&receivedFrame);
 
 	unsigned char feedback[5];
 
@@ -1045,7 +1019,8 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	memcpy(packet, packetArray.array, packetArray.used);
 
-	printHexArray(&receivedFrame);
+	printf("Received data: ");
+	printHexArray(&packetArray);
 
 	freeArray(&receivedFrame);
 	freeArray(&dataArray);
