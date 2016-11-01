@@ -107,7 +107,7 @@ int supervisionSM(int fd, unsigned char* frame)
 			case 3:
 				if(readByte == (frame[1]^frame[2]))
 				{
-					frame[state] == readByte;
+					frame[state] = readByte;
 					state++;
 				}
 				
@@ -182,7 +182,7 @@ int informationSM(int fd, unsigned char* frame)
 			case 1:
 				if(readByte == A_SND)
 				{
-					frame[i] == readByte;
+					frame[i] = readByte;
 
 					i++;
 					state++;
@@ -219,7 +219,7 @@ int informationSM(int fd, unsigned char* frame)
 				break;
 
 			case 3:
-				if(readByte == frame[1] ^ frame[2])
+				if(readByte == (frame[1] ^ frame[2]))
 				{
 					frame[i] = readByte;
 
