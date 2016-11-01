@@ -22,6 +22,250 @@ void alarmHandler()
 	numOfTries++;
 }
 
+/******************** STATE MACHINES *******************/
+
+int supervisionSM(int fd, unsigned char* frame)
+{
+	int pass = FALSE;
+
+	int state = 0;
+
+	int res = 0; // result of read function
+
+	while(!pass)
+	{
+		char readByte;
+
+		if(state < 5) // while frame is not complete
+		{
+			res = read(fd, &readByte, 1); // reads one byte at a time
+
+			if(flag == 1 && res < 0)
+			{
+				return -1; // interrupt function to resend command
+			}
+
+			if(res < 0)
+			{
+				continue; // continue reading, until a char appears
+			}
+			else
+			{
+				if(DEBUG)
+				{
+					printf("supervisionSM received %d bytes: 0x%x\n", res, readByte);
+				}
+			}
+		}
+
+		switch (state)
+		{
+			case 0:
+				if(readByte == FLAG)
+				{
+					frame[state] = readByte;
+					state++;
+				}
+
+				break;
+			
+			case 1:
+				if(readByte == A_RCV || readByte == A_SND)
+				{
+					frame[state] = readByte;
+					state++;
+				}
+
+				else if (readByte != FLAG)
+				{
+					state = 0;	// resets state machine. If it was a flag, the state would continue to be 1.
+				}
+
+				break;
+
+			case 2:
+				if(readByte == C_SET || readByte == C_UA 
+				|| readByte == RR_0 || readByte == RR_1 || 
+				readByte == REJ_0 || readByte == REJ_1 || 
+				readByte == C_DISC)
+				{
+					frame[state] = readByte;
+					state++;
+				}
+
+				else if (readByte == FLAG)
+				{
+					state = 1;
+				}
+				else
+				{
+					state = 0;
+				}
+				
+				break;
+
+			case 3:
+				if(readByte == (frame[1]^frame[2]))
+				{
+					frame[state] = readByte;
+					state++;
+				}
+				
+				else if (readByte == FLAG)
+				{
+					state = 1;
+				}
+				
+				else
+				{
+					state = 0;
+				}
+
+				break;
+
+			case 4:
+				if(readByte == FLAG)
+				{
+					frame[state] = readByte;
+					state ++;
+				}
+				else
+				{
+					state = 0;
+				}
+
+				break;
+
+			default: // if state is bigger than 4
+				pass = TRUE;
+				state = SM_SUCCESS;
+				break;
+		}
+	}
+
+	return state;
+}
+
+int informationSM(int fd, Array* frameArray)
+{
+	int i = 0;	// index of the char being written
+	int state = 0;
+
+	int complete = FALSE; // whether the frame is complete or not
+
+	int r = 0;
+
+	unsigned char readByte = 20;
+
+	while(!complete)
+	{	
+		r = read(fd, &readByte, 1);
+
+		if(r <= 0)
+		{
+			continue; 	// if no byte is received, try to read again
+		}
+
+		switch(state)
+		{
+			case 0:
+				if (readByte == FLAG)
+				{
+					insertArray(frameArray, readByte);
+
+					i++; 
+					state++;
+				}
+
+				break;
+			
+			case 1:
+				if(readByte == A_SND || readByte == A_RCV)
+				{
+					insertArray(frameArray, readByte);
+
+					i++;
+					state++;
+				}
+				else if (readByte != FLAG)
+				{
+					state = 0;
+					i = 0;
+				}
+
+				break;
+
+			case 2:
+				if(readByte == C_FRAME_0 || readByte == C_FRAME_1)
+				{
+					insertArray(frameArray, readByte);
+
+					i++;
+					state++;
+				}
+
+				else if (readByte == FLAG)
+				{
+					state = 1; 
+					i = 1;
+				}
+
+				else
+				{
+					state = 0;
+					i = 0;
+				}
+
+				break;
+
+			case 3:
+				if(readByte == (frameArray->array[1] ^ frameArray->array[2]))
+				{
+					insertArray(frameArray, readByte);
+
+					i++;
+					state++;
+				}
+
+				else if (readByte == FLAG)
+				{
+					state = 1; 
+					i = 1;
+				}
+
+				else
+				{
+					state = 0;
+					i = 0;
+				}
+
+				break;
+			
+			case 4:
+				if(readByte == FLAG)
+				{
+					insertArray(frameArray, readByte);
+
+					i++;
+					complete = TRUE;
+				}
+				else
+				{
+					insertArray(frameArray, readByte); // read information while FLAG does not appear
+					i++;
+				}
+
+				break;
+
+			default:
+				break;
+		}
+				
+	}
+	
+	return i;
+}
+
 /******************** VERIFYING COMMAND FUNCTIONS *******************/
 
 int badSET(unsigned char* set)
@@ -333,7 +577,7 @@ int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio){
 
 	initSetFrame(appL, linkL);
 
-    fd = open(linkL->port, O_RDWR | O_NOCTTY );
+    fd = open(linkL->port, O_RDWR | O_NOCTTY);
     if (fd <0) {perror(linkL->port); exit(-1); }
 
     appL->fileDescriptor = fd;
@@ -486,7 +730,6 @@ void initializeInformationFrame(Array* frameArray, LinkLayer* linkL)
         insertArray(frameArray, C_FRAME_1);
     }
 
-	insertArray(frameArray, C_SET);
 	insertArray(frameArray, (frameArray->array[1] ^ frameArray->array[2])); // header BCC
 }
 
@@ -595,7 +838,7 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 			beginFlagPosition = i;
 			beginFlag = 1;
 
-			beginDataPosition = beginFlagPosition + 5;
+			beginDataPosition = beginFlagPosition + 4;
 			break;
 		}
 	}
@@ -725,14 +968,6 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 {
 	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
 
-	int res;
-
-	int beginFlag = 0;
-
-	STOP=FALSE;
-
-	unsigned char readByte;
-
 	Array receivedFrame;
 	initArray(&receivedFrame, 1);
 
@@ -742,35 +977,26 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 	Array packetArray;
 	initArray(&packetArray, MAX_SIZE);
 
-	tcflush(fd, TCIOFLUSH); // REMOVING THIS CAUSES TROUBLE READING!!!
-
 	printf("Begin receiving...\n");
 
-	//CYCLE
-	while (STOP==FALSE)  // loop for input
-	{
-		res = read(fd, &readByte, 1);
+	size_t frameSize = informationSM(fd, &receivedFrame);
 
-		if(res <= 0)
-			continue;
-
-		insertArray(&receivedFrame, readByte);
-
-		if(readByte == FLAG && beginFlag == 0)
-		{
-			beginFlag = 1;
-			continue;
-		}
-		if(readByte == FLAG && beginFlag == 1)
-		{
-			STOP = TRUE;
-			continue;
-		}
-	}
+	printHexArray(&receivedFrame);
+	printf("Used: %lu\n", receivedFrame.used);
 
 	printf("Received new frame.\n");
 
+	printHexArray(&receivedFrame);
+
 	unsigned char feedback[5];
+
+
+	// ERROR SIMULATION
+	if(rand() % 100 <= 10 && ERROR_SIMULATION){ 	// 10 in 100 probability
+		printf("ERROR Simulation\n");
+		int e = (rand() % frameSize) + 4;
+		receivedFrame.array[e] = C_UA;
+	}
 
 	if(generateResponse(&receivedFrame, feedback) <= 0)	// if frame has been rejected
 	{
@@ -801,7 +1027,8 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	memcpy(packet, packetArray.array, packetArray.used);
 
-	printHexArray(&receivedFrame);
+	printf("Received data: ");
+	printHexArray(&packetArray);
 
 	freeArray(&receivedFrame);
 	freeArray(&dataArray);

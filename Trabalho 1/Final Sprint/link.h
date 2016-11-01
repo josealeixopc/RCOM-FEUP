@@ -35,6 +35,20 @@
 #define ESCAPE 0x7d
 #define XOR_BYTE 0x20
 
+// State machine outputs
+
+#define SM_FAILED   -1
+#define SM_SET      0
+#define SM_UA       1
+#define SM_I0       2
+#define SM_I1       3
+#define SM_RR0      4
+#define SM_RR1      5
+#define SM_REJ0     6
+#define SM_REJ1     7
+#define SM_DISC     8
+#define SM_SUCCESS  9
+
 //Alarm handler 
 
 void alarmHandler();
