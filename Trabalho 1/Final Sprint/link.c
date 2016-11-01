@@ -22,6 +22,250 @@ void alarmHandler()
 	numOfTries++;
 }
 
+/******************** STATE MACHINES *******************/
+
+int supervisionSM(int fd, unsigned char* frame)
+{
+	int pass = FALSE;
+
+	int state = 0;
+
+	int res = 0; // result of read function
+
+	while(!pass)
+	{
+		char readByte;
+
+		if(state < 5) // while frame is not complete
+		{
+			res = read(fd, &readByte, 1); // reads one byte at a time
+
+			if(flag == 1 && res < 0)
+			{
+				return -1; // interrupt function to resend command
+			}
+
+			if(res < 0)
+			{
+				continue; // continue reading, until a char appears
+			}
+			else
+			{
+				if(DEBUG)
+				{
+					printf("supervisionSM received %d bytes: 0x%x\n", res, readByte);
+				}
+			}
+		}
+
+		switch (state)
+		{
+			case 0:
+				if(readByte == FLAG)
+				{
+					frame[state] = readByte;
+					state++;
+				}
+
+				break;
+			
+			case 1:
+				if(readByte == A_RCV || readByte == A_SND)
+				{
+					frame[state] = readByte;
+					state++;
+				}
+
+				else if (readByte != FLAG)
+				{
+					state = 0;	// resets state machine. If it was a flag, the state would continue to be 1.
+				}
+
+				break;
+
+			case 2:
+				if(readByte == C_SET || readByte == C_UA 
+				|| readByte == RR_0 || readByte == RR_1 || 
+				readByte == REJ_0 || readByte == REJ_1 || 
+				readByte == C_DISC)
+				{
+					frame[state] = readByte;
+					state++;
+				}
+
+				else if (readByte == FLAG)
+				{
+					state = 1;
+				}
+				else
+				{
+					state = 0;
+				}
+				
+				break;
+
+			case 3:
+				if(readByte == (frame[1]^frame[2]))
+				{
+					frame[state] == readByte;
+					state++;
+				}
+				
+				else if (readByte == FLAG)
+				{
+					state = 1;
+				}
+				
+				else
+				{
+					state = 0;
+				}
+
+				break;
+
+			case 4:
+				if(readByte == FLAG)
+				{
+					frame[state] = readByte;
+					state ++;
+				}
+				else
+				{
+					state = 0;
+				}
+
+				break;
+
+			default: // if state is bigger than 4
+				pass = TRUE;
+				state = SM_SUCCESS;
+				break;
+		}
+	}
+
+	return state;
+}
+
+int informationSM(int fd, unsigned char* frame)
+{
+	int i = 0;	// index of the char being written
+	int state = 0;
+
+	int complete = FALSE; // whether the frame is complete or not
+
+	int res = 0;
+
+	while(!complete)
+	{
+		unsigned char readByte;	
+
+		res = read(fd, &readByte, 1);
+
+		if(res == -1)
+		{
+			continue; 	// if no byte is received, try to read again
+		}
+
+		switch(state)
+		{
+			case 0:
+				if (readByte == FLAG)
+				{
+					frame[i] = readByte;
+
+					i++; 
+					state++;
+				}
+
+				break;
+			
+			case 1:
+				if(readByte == A_SND)
+				{
+					frame[i] == readByte;
+
+					i++;
+					state++;
+				}
+				else if (readByte != FLAG)
+				{
+					state = 0;
+					i = 0;
+				}
+
+				break;
+
+			case 2:
+				if(readByte == C_FRAME_0 || readByte == C_FRAME_1)
+				{
+					frame[i] = readByte;
+
+					i++;
+					state++;
+				}
+
+				else if (readByte == FLAG)
+				{
+					state = 1; 
+					i = 1;
+				}
+
+				else
+				{
+					state = 0;
+					i = 0;
+				}
+
+				break;
+
+			case 3:
+				if(readByte == frame[1] ^ frame[2])
+				{
+					frame[i] = readByte;
+
+					i++;
+					state++;
+				}
+
+				else if (readByte == FLAG)
+				{
+					state = 1; 
+					i = 1;
+				}
+
+				else
+				{
+					state = 0;
+					i = 0;
+				}
+
+				break;
+			
+			case 4:
+				if(readByte == FLAG)
+				{
+					frame[i] = readByte;
+
+					i++;
+					complete = TRUE;
+				}
+				else
+				{
+					frame[i] = readByte; // read information while FLAG does not appear
+					i++;
+				}
+
+				break;
+
+			default:
+				break;
+		}
+				
+	}
+	
+	return i;
+}
+
 /******************** VERIFYING COMMAND FUNCTIONS *******************/
 
 int badSET(unsigned char* set)
