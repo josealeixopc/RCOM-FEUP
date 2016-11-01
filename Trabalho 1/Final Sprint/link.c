@@ -979,7 +979,7 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	printf("Begin receiving...\n");
 
-	informationSM(fd, &receivedFrame);
+	size_t frameSize = informationSM(fd, &receivedFrame);
 
 	printHexArray(&receivedFrame);
 	printf("Used: %lu\n", receivedFrame.used);
@@ -989,6 +989,14 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 	printHexArray(&receivedFrame);
 
 	unsigned char feedback[5];
+
+
+	// ERROR SIMULATION
+	if(rand() % 100 <= 10 && ERROR_SIMULATION){ 	// 10 in 100 probability
+		printf("ERROR Simulation\n");
+		int e = (rand() % frameSize) + 4;
+		receivedFrame.array[e] = C_UA;
+	}
 
 	if(generateResponse(&receivedFrame, feedback) <= 0)	// if frame has been rejected
 	{
