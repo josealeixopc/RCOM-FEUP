@@ -760,7 +760,7 @@ void endInformationFrame(Array* frameArray)
 
 /******************** SEND & RECEIVE FUNCTIONS *******************/
 
-int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL)
+int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL, Stats* stats)
 {
     int returnValue;
 
@@ -797,6 +797,8 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 			printf("Frame #%d sent with success!\n\n", linkL->sequenceNumber);
 			linkL->sequenceNumber = 0;
 			returnValue = 0;
+			stats->framesSent++;
+			stats->numRR++;
 		}
 		else
 		{
@@ -811,6 +813,8 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 			printf("Frame #%d sent with success!\n", linkL->sequenceNumber);
 			linkL->sequenceNumber = 1;
 			returnValue = 0;
+			stats->framesSent++;
+			stats->numRR++;
 		}
 		else
 		{
@@ -822,8 +826,22 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 
 	while(reject(feedback) == (linkL->sequenceNumber) && i < 10)
 	{
+		stats->numREJ++;
 		printf("Frame %d rejected. Sending again.\n", linkL->sequenceNumber);
 		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+
+		if(receiverReady(feedback) == 1 && linkL->sequenceNumber == 0)
+		{
+			stats->numRR++;
+			break;
+		}
+
+		if(receiverReady(feedback) == 0 && linkL->sequenceNumber == 1)
+		{
+			stats->numRR++;
+			break;
+		}
+
 		i++;
 	}
 
@@ -932,7 +950,7 @@ void removeBodyBCC(Array* dataAndBCCArray)
 // [RECEIVER]
 /* Decides what array to send as a response */
 /* Returns negative value if frame is to be rejected */
-int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* response)
+int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* response, Stats* stats)
 {
 	int ret = 0;
 
@@ -950,6 +968,8 @@ int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* respons
 			{
 				printf("Frame #1 received with body errors.\n");
 			}
+
+			stats->numREJ++;
 		}
 
 		else if(getFrameSequenceNumber(frameArray) == 0)
@@ -961,6 +981,8 @@ int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* respons
 			{
 				printf("Frame #0 received with body errors.\n");
 			}
+
+			stats->numREJ++;
 		}
 
 		else
@@ -975,12 +997,16 @@ int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* respons
 		{
 			response[2] = RR_0;
 			ret = 1;
+
+			stats->numRR++;
 		}
 
 		else if(getFrameSequenceNumber(frameArray) == 0)
 		{
 			response[2] = RR_1;
 			ret = 2;
+
+			stats->numRR++;
 		}
 
 		else
@@ -996,7 +1022,7 @@ int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* respons
 	return ret;
 }
 
-int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL)
+int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL, Stats* stats)
 {
 	/* TCIOFLUSH flushes both data received but not read and adata written but not transmitted*/
 
@@ -1033,7 +1059,6 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	size_t dataLength = getDataAndBCCFromFrame(receivedFrame.array, dataAndBCC);
 
-
 	copyArray(dataAndBCC, &dataAndBCCArray, dataLength);
 
 	byteUnstuff(&dataAndBCCArray, &packetArray);
@@ -1044,7 +1069,7 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	unsigned char feedback[5];
 
-	int gr = generateResponse(&receivedFrame, validBodyBCC, feedback);
+	int gr = generateResponse(&receivedFrame, validBodyBCC, feedback, stats);
 
 	tcflush(fd, TCIOFLUSH);
 
@@ -1061,10 +1086,6 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 		return -1;	// discard current frame
 	}
 
-	
-
-	
-
 	(*packetLength) = packetArray.used;
 
 	packet = (unsigned char*) realloc (packet, packetArray.used * sizeof(unsigned char));
@@ -1079,6 +1100,8 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 	freeArray(&packetArray);
 
 	printf("Frame accepted.\n\n");
+
+	stats->framesReceived++;
 
 	return 0;
 }
