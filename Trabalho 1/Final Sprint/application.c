@@ -10,6 +10,29 @@ char nome_ficheiro_enviar[MAX_SIZE] = "pinguim.gif";
 void loadFile(char * filename);
 void receiveFile();
 
+void menu_cycle(){
+	
+	int status = 0;
+	while((status = startmenu()) == -1);
+	appL.status = (status == 1) ? TRANSMITTER : RECEIVER;
+	while((status = selectPort()) == -1);
+	(status == 1) ? strcpy(linkL.port,"/dev/ttyS0") : strcpy(linkL.port,"/dev/ttyS1");
+	while((status = baudarecheck()) == -1);
+	linkL.baudRate = status;
+	while((status = selectMaxSize()) == -1);
+	frame_size_default = status;
+	while((status = selectTimeout()) == -1);
+	//igualar var respetiva
+	while((status = selectAttempts()) == -1);
+	//igualar var respetiva
+	char * nome = malloc(sizeof(char *) *  MAX_SIZE);
+	getfilename(nome);
+	strcpy(nome_ficheiro_enviar, nome);
+	free(nome);
+	printf("isto nao e boa ideia xd %s\n", nome_ficheiro_enviar);
+
+}
+
 int main(int argc, char** argv)
 {
     if ((argc < 3) ||
@@ -36,7 +59,11 @@ int main(int argc, char** argv)
   //fazer cena do menu, adicionar variaveis e chamar os pros para saber o que alterar xD XD
 
 	(void)signal(SIGALRM, alarmHandler);
+	
+	printf("Going to start menu .. \n");
 
+	menu_cycle();
+	
 	printf("Started execution...\n");
 
 	llopen(&appL, &linkL, &oldtio);
