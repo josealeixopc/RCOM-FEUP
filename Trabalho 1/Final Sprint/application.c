@@ -19,6 +19,7 @@ void menu_cycle(){
 	(status == 1) ? strcpy(linkL.port,"/dev/ttyS0") : strcpy(linkL.port,"/dev/ttyS1");
 	while((status = baudarecheck()) == -1);
 	linkL.baudRate = status;
+	if(appL.status == TRANSMITTER){
 	while((status = selectMaxSize()) == -1);
 	frame_size_default = status;
 	while((status = selectTimeout()) == -1);
@@ -29,8 +30,7 @@ void menu_cycle(){
 	getfilename(nome);
 	strcpy(nome_ficheiro_enviar, nome);
 	free(nome);
-	printf("isto nao e boa ideia xd %s\n", nome_ficheiro_enviar);
-
+	}
 }
 
 int main(int argc, char** argv)
