@@ -275,6 +275,6 @@ void getfilename(char *filenamevar){
 
 	char * bananas = strcat(dir,"/");
 	bananas = strcat(bananas,fname);
-	strcpy(filenamevar, bananas);
+	strcpy(filenamevar, fname);
 
 }
