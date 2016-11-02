@@ -3,7 +3,7 @@
 ApplicationLayer appL;
 LinkLayer linkL;
 Stats stats;
-int frame_size_default = 150;
+int frame_size_default = 100;
 struct termios oldtio;
 char nome_ficheiro_enviar[MAX_SIZE] = "pinguim.gif";
 
@@ -35,8 +35,6 @@ int main(int argc, char** argv)
 
   //fazer cena do menu, adicionar variaveis e chamar os pros para saber o que alterar xD XD
 
-
-
 	(void)signal(SIGALRM, alarmHandler);
 
 	printf("Started execution...\n");
@@ -47,6 +45,11 @@ int main(int argc, char** argv)
 
 
   //Pikachu EX FA 150hp
+
+  if(ERROR_SIMULATION)
+  {
+    srand(time(NULL));
+  }
 
   if(appL.status == TRANSMITTER){
     printf("Enviar ficheiro!\n");

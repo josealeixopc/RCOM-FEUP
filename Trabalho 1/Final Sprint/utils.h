@@ -12,11 +12,12 @@
 #include <signal.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <time.h>
 
 #define MAX_SIZE 255
 
-#define DEBUG 0
-#define ERROR_SIMULATION 1
+#define DEBUG 1
+#define ERROR_SIMULATION 0
 
 typedef struct {
 	int fileDescriptor; /*Descritor correspondente à porta série*/

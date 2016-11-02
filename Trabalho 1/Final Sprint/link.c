@@ -733,17 +733,28 @@ void initializeInformationFrame(Array* frameArray, LinkLayer* linkL)
 	insertArray(frameArray, (frameArray->array[1] ^ frameArray->array[2])); // header BCC
 }
 
-void endInformationFrame(Array* frameArray)
+void addBodyBCC(Array* packetArray)
 {
 	char BCC2 = 0x0;
 	unsigned int i;
 
-	for(i = 4; i < frameArray->used; i++)	// i == 4 so it skips first bytes
+	for(i = 0; i < packetArray->used; i++)	// i == 4 so it skips first bytes
 	{
-		BCC2 = BCC2 ^ (frameArray->array[i]); // verify parity of data bytes
+		BCC2 = BCC2 ^ (packetArray->array[i]); // verify parity of data bytes
 	}
 
-	insertArray(frameArray, BCC2);
+	insertArray(packetArray, BCC2);
+
+	if(DEBUG)
+	{
+		printf("BCC2: %x\n", BCC2);
+	}
+
+
+}
+
+void endInformationFrame(Array* frameArray)
+{
 	insertArray(frameArray, FLAG);
 }
 
@@ -763,6 +774,8 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 
     initializeInformationFrame(&stuffedArray, linkL);
 
+	addBodyBCC(&packetArray);
+
     byteStuff(&packetArray, &stuffedArray);
 
     endInformationFrame(&stuffedArray);
@@ -773,6 +786,9 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 	printHexArray(&stuffedArray);
 
 	send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+
+	printf("Feedback: ");
+	printHexBuffer(feedback, 5);
 
 	if(receiverReady(feedback) == 0)
 	{
@@ -819,7 +835,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 
 /* Removes the header and trailer of the frame*/
 // Returns the length of the dataOut array
-int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
+int getDataAndBCCFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 {
 	int beginFlag = 0, endFlag = 0;
 
@@ -850,7 +866,7 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 			endFlagPosition = i;
 			endFlag = 1;
 
-			endDataPosition = endFlagPosition - 1; // this is the byte after the last byte of data
+			endDataPosition = endFlagPosition; // this is the byte after the last byte of data
 			break;
 		}
 	}
@@ -871,13 +887,13 @@ int getDataFromFrame(unsigned char* frameIn, unsigned  char* dataOut)
 int verifyBodyBCC(Array* frameArray)
 {
 	unsigned char BCC2 = 0x0;
-	unsigned char frameBCC2 = frameArray->array[frameArray->used - 2];
+	unsigned char frameBCC2 = frameArray->array[frameArray->used - 1];
 
 	unsigned int lastDataByte = frameArray->used - 2;
 
 	unsigned int i;
 
-	for(i = 4; i < lastDataByte; i++)	// i == 4 so it skips first bytes
+	for(i = 0; i <= lastDataByte; i++)	// i == 4 so it skips first bytes
 	{
 		BCC2 = BCC2 ^ (frameArray->array[i]); // verify parity of data bytes
 	}
@@ -907,28 +923,44 @@ int getFrameSequenceNumber(Array* frameArray)
 
 }
 
+void removeBodyBCC(Array* dataAndBCCArray)
+{
+	dataAndBCCArray->array[dataAndBCCArray->used -1] = 0;
+	dataAndBCCArray->used--;
+}
+
 // [RECEIVER]
 /* Decides what array to send as a response */
 /* Returns negative value if frame is to be rejected */
-int generateResponse(Array* frameArray, unsigned char* response)
+int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* response)
 {
 	int ret = 0;
 
 	response[0] = FLAG;
 	response[1] = A_SND;
 
-	if(!verifyBodyBCC(frameArray))
+	if(!validBodyBCC)
 	{
 		if(getFrameSequenceNumber(frameArray) == 1)
 		{
 			response[2] = REJ_1;
 			ret = -1;
+
+			if(DEBUG)
+			{
+				printf("Frame #1 received with body errors.\n");
+			}
 		}
 
 		else if(getFrameSequenceNumber(frameArray) == 0)
 		{
 			response[2] = REJ_0;
 			ret = -2;
+
+			if(DEBUG)
+			{
+				printf("Frame #0 received with body errors.\n");
+			}
 		}
 
 		else
@@ -971,8 +1003,8 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 	Array receivedFrame;
 	initArray(&receivedFrame, 1);
 
-	Array dataArray;
-	initArray(&dataArray, MAX_SIZE);
+	Array dataAndBCCArray;
+	initArray(&dataAndBCCArray, MAX_SIZE);
 
 	Array packetArray;
 	initArray(&packetArray, MAX_SIZE);
@@ -981,45 +1013,57 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	size_t frameSize = informationSM(fd, &receivedFrame);
 
+	// ERROR SIMULATION
+	if(rand() % 100 <= 10 && ERROR_SIMULATION){ 	// 10 in 100 probability
+		printf("ERROR Simulation\n");
+		
+		//rand() % (max_number + 1 - minimum_number) + minimum_number
+		int e = rand() % (frameSize - 1 - 4) + 4;
+
+		printf("Random number: %d \n",e);
+		receivedFrame.array[e] = C_UA;
+	}
+
 	printHexArray(&receivedFrame);
 	printf("Used: %lu\n", receivedFrame.used);
 
 	printf("Received new frame.\n");
 
-	printHexArray(&receivedFrame);
+	unsigned char dataAndBCC[MAX_SIZE];
+
+	size_t dataLength = getDataAndBCCFromFrame(receivedFrame.array, dataAndBCC);
+
+
+	copyArray(dataAndBCC, &dataAndBCCArray, dataLength);
+
+	byteUnstuff(&dataAndBCCArray, &packetArray);
+
+	int validBodyBCC = verifyBodyBCC(&packetArray);
+
+	removeBodyBCC(&packetArray);
 
 	unsigned char feedback[5];
 
-
-	// ERROR SIMULATION
-	if(rand() % 100 <= 10 && ERROR_SIMULATION){ 	// 10 in 100 probability
-		printf("ERROR Simulation\n");
-		int e = (rand() % frameSize) + 4;
-		receivedFrame.array[e] = C_UA;
-	}
-
-	if(generateResponse(&receivedFrame, feedback) <= 0)	// if frame has been rejected
-	{
-		freeArray(&receivedFrame);
-		freeArray(&dataArray);
-		freeArray(&packetArray);
-
-		printf("Frame discarded.\n\n");
-
-		return -1;	// discard current frame
-	}
+	int gr = generateResponse(&receivedFrame, validBodyBCC, feedback);
 
 	tcflush(fd, TCIOFLUSH);
 
 	write(fd, feedback, 5);
 
-	unsigned char data[MAX_SIZE];
+	if(gr <= 0)	// if frame has been rejected
+	{
+		freeArray(&receivedFrame);
+		freeArray(&dataAndBCCArray);
+		freeArray(&packetArray);
 
-	size_t dataLength = getDataFromFrame(receivedFrame.array, data);
+		printf("Frame discarded. generateResponse() = %d\n\n", gr);
 
-	copyArray(data, &dataArray, dataLength);
+		return -1;	// discard current frame
+	}
 
-	byteUnstuff(&dataArray, &packetArray);
+	
+
+	
 
 	(*packetLength) = packetArray.used;
 
@@ -1031,7 +1075,7 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 	printHexArray(&packetArray);
 
 	freeArray(&receivedFrame);
-	freeArray(&dataArray);
+	freeArray(&dataAndBCCArray);
 	freeArray(&packetArray);
 
 	printf("Frame accepted.\n\n");
