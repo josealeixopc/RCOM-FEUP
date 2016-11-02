@@ -33,8 +33,9 @@ void menu_cycle(){
 	}
 }
 
-int main(int argc, char** argv)
+int main(/*int argc, char** argv*/)
 {
+/*
     if ((argc < 3) ||
       ((strcmp("/dev/ttyS0", argv[1]) != 0) &&
        (strcmp("/dev/ttyS1", argv[1]) != 0))){
@@ -55,8 +56,7 @@ int main(int argc, char** argv)
 	{
 		printf ("linkL.port in main: %s\n", linkL.port);
 	}
-
-  //fazer cena do menu, adicionar variaveis e chamar os pros para saber o que alterar xD XD
+*/ // funcoes historicas #laig falta apenas fazer o timeout e o cenas
 
 	(void)signal(SIGALRM, alarmHandler);
 	
