@@ -3,15 +3,39 @@
 ApplicationLayer appL;
 LinkLayer linkL;
 Stats stats;
-int frame_size_default = 150;
+int frame_size_default = 100;
 struct termios oldtio;
 char nome_ficheiro_enviar[MAX_SIZE] = "pinguim.gif";
 
 void loadFile(char * filename);
 void receiveFile();
 
-int main(int argc, char** argv)
+void menu_cycle(){
+	
+	int status = 0;
+	while((status = startmenu()) == -1);
+	appL.status = (status == 1) ? TRANSMITTER : RECEIVER;
+	while((status = selectPort()) == -1);
+	(status == 1) ? strcpy(linkL.port,"/dev/ttyS0") : strcpy(linkL.port,"/dev/ttyS1");
+	while((status = baudarecheck()) == -1);
+	linkL.baudRate = status;
+	if(appL.status == TRANSMITTER){
+	while((status = selectMaxSize()) == -1);
+	frame_size_default = status;
+	while((status = selectTimeout()) == -1);
+	//igualar var respetiva
+	while((status = selectAttempts()) == -1);
+	//igualar var respetiva
+	char * nome = malloc(sizeof(char *) *  MAX_SIZE);
+	getfilename(nome);
+	strcpy(nome_ficheiro_enviar, nome);
+	free(nome);
+	}
+}
+
+int main(/*int argc, char** argv*/)
 {
+/*
     if ((argc < 3) ||
       ((strcmp("/dev/ttyS0", argv[1]) != 0) &&
        (strcmp("/dev/ttyS1", argv[1]) != 0))){
@@ -32,13 +56,14 @@ int main(int argc, char** argv)
 	{
 		printf ("linkL.port in main: %s\n", linkL.port);
 	}
-
-  //fazer cena do menu, adicionar variaveis e chamar os pros para saber o que alterar xD XD
-
-
+*/ // funcoes historicas #laig falta apenas fazer o timeout e o cenas
 
 	(void)signal(SIGALRM, alarmHandler);
+	
+	printf("Going to start menu .. \n");
 
+	menu_cycle();
+	
 	printf("Started execution...\n");
 
 	llopen(&appL, &linkL, &oldtio);
@@ -47,6 +72,11 @@ int main(int argc, char** argv)
 
 
   //Pikachu EX FA 150hp
+
+  if(ERROR_SIMULATION)
+  {
+    srand(time(NULL));
+  }
 
   if(appL.status == TRANSMITTER){
     printf("Enviar ficheiro!\n");
