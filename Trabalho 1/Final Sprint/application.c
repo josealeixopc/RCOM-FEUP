@@ -2,30 +2,63 @@
 
 ApplicationLayer appL;
 LinkLayer linkL;
-Stats stats;
+
+Stats stats = {
+  .framesSent = 0,
+  .framesReceived = 0,
+  .numRR = 0,
+  .numREJ = 0,
+  .numTimeouts = 0
+};
+
 int frame_size_default = 100;
 struct termios oldtio;
 char nome_ficheiro_enviar[MAX_SIZE] = "pinguim.gif";
+
+void displayStats()
+{
+  printf("*********** FINAL STATS ************\n");
+
+  if(appL.status == TRANSMITTER)
+  {
+    printf("Number of frames sent: %u\n", stats.framesSent);
+    printf("Number of timeouts: %u\n", stats.numTimeouts);
+    printf("Number of RRs: %u\n", stats.numRR);
+    printf("Number of REJs: %u\n", stats.numREJ);
+  }
+  else
+  {
+    printf("Number of frames received: %u\n", stats.framesReceived);
+    printf("Number of RRs: %u\n", stats.numRR);
+    printf("Number of REJs: %u\n", stats.numREJ);
+  }
+}
 
 void loadFile(char * filename);
 void receiveFile();
 
 void menu_cycle(){
 	
-	int status = 0;
+	int status = -1;
 	while((status = startmenu()) == -1);
 	appL.status = (status == 1) ? TRANSMITTER : RECEIVER;
+
 	while((status = selectPort()) == -1);
 	(status == 1) ? strcpy(linkL.port,"/dev/ttyS0") : strcpy(linkL.port,"/dev/ttyS1");
+
 	while((status = baudarecheck()) == -1);
 	linkL.baudRate = status;
+
+
 	if(appL.status == TRANSMITTER){
 	while((status = selectMaxSize()) == -1);
 	frame_size_default = status;
+
 	while((status = selectTimeout()) == -1);
 	//igualar var respetiva
 	while((status = selectAttempts()) == -1);
 	//igualar var respetiva
+
 	char * nome = malloc(sizeof(char *) *  MAX_SIZE);
 	getfilename(nome);
 	strcpy(nome_ficheiro_enviar, nome);
@@ -91,7 +124,9 @@ int main(/*int argc, char** argv*/)
 
 	printf("llclose() done with success!\n");
 
-    return 0;
+  displayStats();
+
+  return 0;
 
 }
 
@@ -148,7 +183,7 @@ void receiveFile(){
   size_t size_trama = 1;
   unsigned char * initialData = malloc(sizeof(unsigned char *) * size_trama);
   char * file_name = malloc(sizeof( char *) * MAX_SIZE);
-  llread(appL.fileDescriptor, initialData, &size_trama, &linkL );
+  llread(appL.fileDescriptor, initialData, &size_trama, &linkL, &stats);
 
 
   long int file_size_expected = verifyControlData(initialData, file_name, CRUISE_CONTROL);
@@ -170,7 +205,7 @@ void receiveFile(){
     size_trama = 1;
 
 
-    int i = llread(appL.fileDescriptor, initialData, &size_trama, &linkL);
+    int i = llread(appL.fileDescriptor, initialData, &size_trama, &linkL, &stats);
 
     if(i == 0){
       if(verifyControlData(initialData, file_name, END_CONTROL) > 1)
@@ -238,7 +273,7 @@ void loadFile(char * filename){
   {
     int value;
     
-    value =llwrite(appL.fileDescriptor, packageInit, 11 + strlen(filename), &linkL);
+    value =llwrite(appL.fileDescriptor, packageInit, 11 + strlen(filename), &linkL, &stats);
   
     printf("%d\n", value);
 
@@ -264,7 +299,7 @@ void loadFile(char * filename){
 		int send_size = (size - bytes_sent) > frame_size ? frame_size : size-bytes_sent;
     unsigned char * trama = malloc(sizeof(unsigned char *) * (send_size+16));
     createDataPackage(trama, &file_inside[bytes_sent], (n_trama % 255), send_size);
-    llwrite(appL.fileDescriptor, trama, send_size, &linkL);
+    llwrite(appL.fileDescriptor, trama, send_size, &linkL, &stats);
     //sleep(1);
     free(trama);
     bytes_sent += send_size-4;
@@ -273,7 +308,7 @@ void loadFile(char * filename){
 	}
   packageInit = malloc(10 * strlen(filename) + 1);
   createControlPackage(packageInit,size,filename,END_CONTROL);
-  llwrite(appL.fileDescriptor, packageInit, 11 + strlen(filename), &linkL);
+  llwrite(appL.fileDescriptor, packageInit, 11 + strlen(filename), &linkL, &stats);
   free(packageInit);
 	//fechar copotes de controlo THE END :D
 

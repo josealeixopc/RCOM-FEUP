@@ -77,8 +77,8 @@ int llclose(ApplicationLayer* appL, struct termios* oldtio);
 
 // [TRANSMITTER]
 /* Returns 0 on success. Otherwise, returns a negative value */
-int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL);
+int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL, Stats* stats);
 
 // [RECEIVER]
 /* Returns 0 if current frame is correct. Returns -1 if it is to be discarded. */
-int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL);
+int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL, Stats* stats);
