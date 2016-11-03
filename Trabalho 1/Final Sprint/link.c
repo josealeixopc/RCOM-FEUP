@@ -5,6 +5,9 @@ LinkLayer* linkL;
 int flag = -1;           /* 1 if an alarm has not been set and a SET needs to be sent. 0 if it's waiting for a response*/
 int numOfTries = -1;    /* number tries made to send messages */
 
+int max_num_tries = 3;
+int time_out = 3;
+
 volatile int STOP=FALSE;
 
 unsigned char SET[5] = {FLAG, A_SND, C_SET, A_SND^C_SET, FLAG};
@@ -68,7 +71,7 @@ int supervisionSM(int fd, unsigned char* frame)
 				}
 
 				break;
-			
+
 			case 1:
 				if(readByte == A_RCV || readByte == A_SND)
 				{
@@ -84,9 +87,9 @@ int supervisionSM(int fd, unsigned char* frame)
 				break;
 
 			case 2:
-				if(readByte == C_SET || readByte == C_UA 
-				|| readByte == RR_0 || readByte == RR_1 || 
-				readByte == REJ_0 || readByte == REJ_1 || 
+				if(readByte == C_SET || readByte == C_UA
+				|| readByte == RR_0 || readByte == RR_1 ||
+				readByte == REJ_0 || readByte == REJ_1 ||
 				readByte == C_DISC)
 				{
 					frame[state] = readByte;
@@ -101,7 +104,7 @@ int supervisionSM(int fd, unsigned char* frame)
 				{
 					state = 0;
 				}
-				
+
 				break;
 
 			case 3:
@@ -110,12 +113,12 @@ int supervisionSM(int fd, unsigned char* frame)
 					frame[state] = readByte;
 					state++;
 				}
-				
+
 				else if (readByte == FLAG)
 				{
 					state = 1;
 				}
-				
+
 				else
 				{
 					state = 0;
@@ -158,7 +161,7 @@ int informationSM(int fd, Array* frameArray)
 	unsigned char readByte = 20;
 
 	while(!complete)
-	{	
+	{
 		r = read(fd, &readByte, 1);
 
 		if(r <= 0)
@@ -173,12 +176,12 @@ int informationSM(int fd, Array* frameArray)
 				{
 					insertArray(frameArray, readByte);
 
-					i++; 
+					i++;
 					state++;
 				}
 
 				break;
-			
+
 			case 1:
 				if(readByte == A_SND || readByte == A_RCV)
 				{
@@ -206,7 +209,7 @@ int informationSM(int fd, Array* frameArray)
 
 				else if (readByte == FLAG)
 				{
-					state = 1; 
+					state = 1;
 					i = 1;
 				}
 
@@ -229,7 +232,7 @@ int informationSM(int fd, Array* frameArray)
 
 				else if (readByte == FLAG)
 				{
-					state = 1; 
+					state = 1;
 					i = 1;
 				}
 
@@ -240,7 +243,7 @@ int informationSM(int fd, Array* frameArray)
 				}
 
 				break;
-			
+
 			case 4:
 				if(readByte == FLAG)
 				{
@@ -260,9 +263,9 @@ int informationSM(int fd, Array* frameArray)
 			default:
 				break;
 		}
-				
+
 	}
-	
+
 	return i;
 }
 
@@ -456,12 +459,12 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 	int writtenChars = 0;
 
 	//Cycle that sends the SET bytes, while waiting for UA
-	while(numOfTries < MAX_TRIES){
+	while(numOfTries < max_num_tries){
 		if(flag)
 		{
 			printf("Try #%d\n", numOfTries+1);
 
-			alarm(3); /* waits 3 seconds, then activates a SIGALRM */
+			alarm(time_out); /* waits x seconds, then activates a SIGALRM */
 			flag = 0; /* doesn't resend a signal until an alarm is handled */
 
 			tcflush(fd, TCIOFLUSH);
@@ -604,7 +607,8 @@ int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio){
       perror("tcsetattr");
       exit(-1);
     }
-
+	max_num_tries = linkL->numTransmissions;
+	time_out = linkL->timeout;
 	if(appL->status == TRANSMITTER)
 		send_set(fd);
 	else
@@ -794,15 +798,15 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 
 		while ((input = getchar()) != '\n' && input != EOF); // flush lost new lines
 
-		input = 0;	
+		input = 0;
 
 		while (1)
 		{
 			printf("Connection seems to have been lost. Do you want to (r)esend or (e)xit the program? ");
-			
-			if (fgets(line, sizeof(line), stdin)) 
+
+			if (fgets(line, sizeof(line), stdin))
 			{
-  				if (1 != sscanf(line, "%c", &input)) 
+  				if (1 != sscanf(line, "%c", &input))
 				{
 					printf("Invalid input.\n");
 					continue;
@@ -815,7 +819,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 					}
 				}
 			}
-			
+
 			printf("\n\n");
 
 			if(input ==  'e' || input == 'E')
@@ -830,7 +834,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 			{
 				printf("Sending again...\n");
 				sleep(1);
-				numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);	
+				numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
 				break;
 			}
 
@@ -902,7 +906,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 		{
 			printf("ERROR: Frame keeps getting rejected.\n");
 			returnValue = -10;
-		}	
+		}
 	}
 
     freeArray(&packetArray);
@@ -1102,7 +1106,7 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 	// ERROR SIMULATION
 	if(rand() % 100 <= 10 && ERROR_SIMULATION){ 	// 10 in 100 probability
 		printf("ERROR Simulation\n");
-		
+
 		//rand() % (max_number + 1 - minimum_number) + minimum_number
 		int e = rand() % (frameSize - 1 - 4) + 4;
 
@@ -1113,7 +1117,7 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 	// DISCONNECTION SIMULATION
 	if(rand() % 1000 <= 5 && DISCONNECTION_SIMULATION){ 	// 5 in 1000 probability
 		printf("Sleeping... (disconnection simulation)\n");
-		sleep(20);
+		sleep(10);
 	}
 
 	printHexArray(&receivedFrame);
