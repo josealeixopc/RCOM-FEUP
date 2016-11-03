@@ -18,6 +18,7 @@
 
 #define DEBUG 1
 #define ERROR_SIMULATION 0
+#define DISCONNECTION_SIMULATION 1
 
 typedef struct {
 	int fileDescriptor; /*Descritor correspondente à porta série*/

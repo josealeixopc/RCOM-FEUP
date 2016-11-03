@@ -789,18 +789,33 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 
 	while(numOfWrittenChars == -1)
 	{
+		char line[256];
 		char input;
-		
+
+		while ((input = getchar()) != '\n' && input != EOF); // flush lost new lines
+
 		input = 0;	
 
-		while ( (input = getchar()) != '\n' && input != EOF )
+		while (1)
 		{
 			printf("Connection seems to have been lost. Do you want to (r)esend or (e)xit the program? ");
 			
-			fflush(stdin);
-			input = getchar();
-			fflush(stdin);
-
+			if (fgets(line, sizeof(line), stdin)) 
+			{
+  				if (1 != sscanf(line, "%c", &input)) 
+				{
+					printf("Invalid input.\n");
+					continue;
+   			 	}
+				else
+				{
+					if(DEBUG)
+					{
+						printf("User input: %c\n", input);
+					}
+				}
+			}
+			
 			printf("\n\n");
 
 			if(input ==  'e' || input == 'E')
@@ -808,13 +823,15 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 				printf("Exiting...\n");
 				sleep(1);
 				exit(-1);
+				break;
 			}
 
 			else if(input == 'r' || input == 'R')
 			{
 				printf("Sending again...\n");
 				sleep(1);
-				numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+				numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);	
+				break;
 			}
 
 			else
@@ -1091,6 +1108,12 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 		printf("Random number: %d \n",e);
 		receivedFrame.array[e] = C_UA;
+	}
+
+	// DISCONNECTION SIMULATION
+	if(rand() % 1000 <= 5 && DISCONNECTION_SIMULATION){ 	// 5 in 1000 probability
+		printf("Sleeping... (disconnection simulation)\n");
+		sleep(20);
 	}
 
 	printHexArray(&receivedFrame);
