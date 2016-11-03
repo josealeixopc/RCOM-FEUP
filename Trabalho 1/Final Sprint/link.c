@@ -480,7 +480,7 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 			return writtenChars;
 		}
 
-		if(numOfTries == MAX_TRIES)
+		if(numOfTries == max_num_tries)
 		{
 			stats->numTimeouts++;
 		}

@@ -21,14 +21,14 @@ void displayStats()
 
   if(appL.status == TRANSMITTER)
   {
-    printf("Number of frames sent: %u\n", stats.framesSent);
+    printf("Number of frames sent and accepted: %u\n", stats.framesSent);
     printf("Number of timeouts: %u\n", stats.numTimeouts);
     printf("Number of RRs: %u\n", stats.numRR);
     printf("Number of REJs: %u\n", stats.numREJ);
   }
   else
   {
-    printf("Number of frames received: %u\n", stats.framesReceived);
+    printf("Number of frames received (including discarded ones): %u\n", stats.framesReceived);
     printf("Number of RRs: %u\n", stats.numRR);
     printf("Number of REJs: %u\n", stats.numREJ);
   }
