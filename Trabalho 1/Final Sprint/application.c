@@ -210,7 +210,7 @@ void receiveFile(){
     if(i == 0){
       if(verifyControlData(initialData, file_name, END_CONTROL) > 1)
       {
-        printf("done receiving file! wasnt expecting this ;)\n");
+        printf("Done receiving file!\n");
         received = TRUE;
       }
       else{
@@ -222,7 +222,7 @@ void receiveFile(){
     free(initialData);
 
   }
-  printf("Final result =%ld, expecetd = %ld\n",size_received,file_size_expected);
+  printf("Number of bytes sent = %ld.\n",size_received);
   free(n_trama);
   free(file_name);
 	close(file_d);
@@ -303,7 +303,7 @@ void loadFile(char * filename){
     //sleep(1);
     free(trama);
     bytes_sent += send_size-4;
-    printf("trama %d\n", n_trama);
+    printf("Information frame #%d\n", n_trama);
     n_trama++;
 	}
   packageInit = malloc(10 * strlen(filename) + 1);

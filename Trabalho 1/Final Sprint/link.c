@@ -658,7 +658,7 @@ int close_ua(int fd){
 
 		if(res >= 1 && badDisc(received))
 		{
-			printf("bad disc received!\n");
+			printf("Bad DISC received!\n");
 			free(received);
 			return -1;
 		}
@@ -845,8 +845,11 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 		}
 	}
 
-	printf("Feedback: ");
-	printHexBuffer(feedback, 5);
+	if(DEBUG)
+	{
+		printf("Feedback: ");
+		printHexBuffer(feedback, 5);
+	}
 
 	if(receiverReady(feedback) == 0)
 	{
@@ -868,7 +871,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 	{
 		if(linkL->sequenceNumber == 0)
 		{
-			printf("Frame #%d sent with success!\n", linkL->sequenceNumber);
+			printf("Frame #%d sent with success!\n\n", linkL->sequenceNumber);
 			linkL->sequenceNumber = 1;
 			returnValue = 0;
 			stats->framesSent++;
@@ -885,7 +888,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 	while(reject(feedback) == (linkL->sequenceNumber) && i < 10)
 	{
 		stats->numREJ++;
-		printf("Frame %d rejected. Sending again.\n", linkL->sequenceNumber);
+		printf("Frame %d rejected. Sending again.\n\n", linkL->sequenceNumber);
 		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback, stats);
 
 		if(receiverReady(feedback) == 1 && linkL->sequenceNumber == 0)
@@ -904,7 +907,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 
 		if(i == 10)
 		{
-			printf("ERROR: Frame keeps getting rejected.\n");
+			printf("ERROR: Frame keeps getting rejected.\n\n");
 			returnValue = -10;
 		}	
 	}
@@ -1051,7 +1054,10 @@ int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* respons
 
 		else
 		{
-			printf("Invalid frame sequence number received.\n");
+			if(DEBUG)
+			{
+				printf("Invalid frame sequence number received.\n");
+			}
 		}
 
 	}
@@ -1075,7 +1081,10 @@ int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* respons
 
 		else
 		{
-			printf("Invalid frame sequence number received.\n");
+			if(DEBUG)
+			{
+				printf("Invalid frame sequence number received.\n");
+			}
 		}
 	}
 
@@ -1116,14 +1125,13 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	// DISCONNECTION SIMULATION
 	if(rand() % 1000 <= 5 && DISCONNECTION_SIMULATION){ 	// 5 in 1000 probability
-		printf("Sleeping... (disconnection simulation)\n");
+		printf("DISCONNECTION SIMULATION\nSleeping...\n");
 		sleep(20);
 	}
 
+	printf("Frame received.\n");
+	printf("Size of received frame: %lu\n", receivedFrame.used);
 	printHexArray(&receivedFrame);
-	printf("Used: %lu\n", receivedFrame.used);
-
-	printf("Received new frame.\n");
 
 	unsigned char dataAndBCC[MAX_SIZE];
 
@@ -1151,7 +1159,10 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 		freeArray(&dataAndBCCArray);
 		freeArray(&packetArray);
 
-		printf("Frame discarded. generateResponse() = %d\n\n", gr);
+		if(DEBUG)
+		{
+			printf("Frame discarded. generateResponse() = %d\n\n", gr);
+		}
 
 		return -1;	// discard current frame
 	}
@@ -1162,7 +1173,7 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	memcpy(packet, packetArray.array, packetArray.used);
 
-	printf("Received data: ");
+	printf("Packet inside frame: ");
 	printHexArray(&packetArray);
 
 	freeArray(&receivedFrame);
