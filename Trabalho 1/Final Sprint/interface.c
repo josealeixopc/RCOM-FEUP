@@ -107,7 +107,6 @@ int baudarecheck(){
 			break;
 		
 	}
-		printf("dudududu %d\n", baudrate);
 		return baudrate;
 
 }

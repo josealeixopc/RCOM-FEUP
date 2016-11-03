@@ -72,8 +72,8 @@ int byteUnstuff(Array* inArray, Array* outArray);
 /* Comunication functions */
 
 // Open & close
-int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio);
-int llclose(ApplicationLayer* appL, struct termios* oldtio);
+int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio, Stats* stats);
+int llclose(ApplicationLayer* appL, struct termios* oldtio, Stats* stats);
 
 // [TRANSMITTER]
 /* Returns 0 on success. Otherwise, returns a negative value */

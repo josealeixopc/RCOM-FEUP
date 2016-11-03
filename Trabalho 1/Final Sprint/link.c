@@ -448,7 +448,7 @@ int byteUnstuff(Array* inArray, Array* outArray)
 
 // [TRANSMITTER] Function to send a message with timeout and receive response from receiver
 // @return Control flag of sent response
-int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * received){
+int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * received, Stats* stats){
 
 	flag = 1;
 	numOfTries = 0;
@@ -478,6 +478,11 @@ int send_cycle(int fd, unsigned char * sendMsg, int size, unsigned char * receiv
 		if(res >= 1)
 		{
 			return writtenChars;
+		}
+
+		if(numOfTries == MAX_TRIES)
+		{
+			stats->numTimeouts++;
 		}
 
 	}
@@ -520,14 +525,14 @@ void receive_set(int fd){
 
 // [TRANSMITTER] Try to send set flag 3 times and receive UA response
 
-void send_set(int fd){
+void send_set(int fd, Stats* stats){
 
 	int res;
 	unsigned char msg[5];
 
 	printf("Begin connection.\n");
 
-	res = send_cycle(fd, SET, 5, msg);
+	res = send_cycle(fd, SET, 5, msg, stats);
 
     if(res == -1) {
     	printf("ERROR: Couldn't receive response after sending SET.\n");
@@ -568,7 +573,7 @@ void initSetFrame(ApplicationLayer* appL, LinkLayer* linkL)
 	memcpy(linkL->frame, trama_su, 5);
 }
 
-int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio){
+int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio, Stats* stats){
 
 	int fd;
     struct termios newtio;
@@ -610,7 +615,7 @@ int llopen(ApplicationLayer* appL, LinkLayer* linkL, struct termios* oldtio){
 	max_num_tries = linkL->numTransmissions;
 	time_out = linkL->timeout;
 	if(appL->status == TRANSMITTER)
-		send_set(fd);
+		send_set(fd, stats);
 	else
 		receive_set(fd);
 
@@ -657,7 +662,7 @@ int close_ua(int fd){
 
 		if(res >= 1 && badDisc(received))
 		{
-			printf("bad disc received!\n");
+			printf("Bad DISC received!\n");
 			free(received);
 			return -1;
 		}
@@ -667,7 +672,7 @@ int close_ua(int fd){
 	return -1;
 }
 
-void close_set(int fd){
+void close_set(int fd, Stats* stats){
 	int res;
 	tcflush(fd, TCIOFLUSH);
 	unsigned char * DISC = SET;
@@ -675,7 +680,7 @@ void close_set(int fd){
 	DISC[3] = A_SND^C_DISC;
 	unsigned char buf[5];
 
-	res = send_cycle(fd, DISC,5, buf);
+	res = send_cycle(fd, DISC,5, buf, stats);
 	if(res < 1){
 		printf("Error receiving disc!\n");
 		return;
@@ -689,19 +694,18 @@ void close_set(int fd){
 
 			if(res > 1)
 				return;
-
 	}
 
 }
 
-int llclose(ApplicationLayer* appL, struct termios* oldtio)
+int llclose(ApplicationLayer* appL, struct termios* oldtio, Stats* stats)
 {
     int fd = appL->fileDescriptor;
 
 	printf("Begin closing attempt...\n");
 
 	if(appL->status == TRANSMITTER)
-        close_set(fd);
+        close_set(fd, stats);
 	else
         close_ua(fd);
 
@@ -789,7 +793,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 	printf("Begin to send frame #%d: ", linkL->sequenceNumber);
 	printHexArray(&stuffedArray);
 
-	int numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+	int numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback, stats);
 
 	while(numOfWrittenChars == -1)
 	{
@@ -834,7 +838,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 			{
 				printf("Sending again...\n");
 				sleep(1);
-				numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+				numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback, stats);	
 				break;
 			}
 
@@ -845,8 +849,11 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 		}
 	}
 
-	printf("Feedback: ");
-	printHexBuffer(feedback, 5);
+	if(DEBUG)
+	{
+		printf("Feedback: ");
+		printHexBuffer(feedback, 5);
+	}
 
 	if(receiverReady(feedback) == 0)
 	{
@@ -868,7 +875,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 	{
 		if(linkL->sequenceNumber == 0)
 		{
-			printf("Frame #%d sent with success!\n", linkL->sequenceNumber);
+			printf("Frame #%d sent with success!\n\n", linkL->sequenceNumber);
 			linkL->sequenceNumber = 1;
 			returnValue = 0;
 			stats->framesSent++;
@@ -885,8 +892,8 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 	while(reject(feedback) == (linkL->sequenceNumber) && i < 10)
 	{
 		stats->numREJ++;
-		printf("Frame %d rejected. Sending again.\n", linkL->sequenceNumber);
-		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+		printf("Frame %d rejected. Sending again.\n\n", linkL->sequenceNumber);
+		send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback, stats);
 
 		if(receiverReady(feedback) == 1 && linkL->sequenceNumber == 0)
 		{
@@ -904,7 +911,7 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 
 		if(i == 10)
 		{
-			printf("ERROR: Frame keeps getting rejected.\n");
+			printf("ERROR: Frame keeps getting rejected.\n\n");
 			returnValue = -10;
 		}
 	}
@@ -1051,7 +1058,10 @@ int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* respons
 
 		else
 		{
-			printf("Invalid frame sequence number received.\n");
+			if(DEBUG)
+			{
+				printf("Invalid frame sequence number received.\n");
+			}
 		}
 
 	}
@@ -1075,7 +1085,10 @@ int generateResponse(Array* frameArray, int validBodyBCC, unsigned char* respons
 
 		else
 		{
-			printf("Invalid frame sequence number received.\n");
+			if(DEBUG)
+			{
+				printf("Invalid frame sequence number received.\n");
+			}
 		}
 	}
 
@@ -1116,14 +1129,13 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	// DISCONNECTION SIMULATION
 	if(rand() % 1000 <= 5 && DISCONNECTION_SIMULATION){ 	// 5 in 1000 probability
-		printf("Sleeping... (disconnection simulation)\n");
+		printf("DISCONNECTION SIMULATION\nSleeping...\n");
 		sleep(10);
 	}
 
+	printf("Frame received.\n");
+	printf("Size of received frame: %lu\n", receivedFrame.used);
 	printHexArray(&receivedFrame);
-	printf("Used: %lu\n", receivedFrame.used);
-
-	printf("Received new frame.\n");
 
 	unsigned char dataAndBCC[MAX_SIZE];
 
@@ -1151,7 +1163,10 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 		freeArray(&dataAndBCCArray);
 		freeArray(&packetArray);
 
-		printf("Frame discarded. generateResponse() = %d\n\n", gr);
+		if(DEBUG)
+		{
+			printf("Frame discarded. generateResponse() = %d\n\n", gr);
+		}
 
 		return -1;	// discard current frame
 	}
@@ -1162,7 +1177,7 @@ int llread(int fd, unsigned char* packet, size_t* packetLength, LinkLayer* linkL
 
 	memcpy(packet, packetArray.array, packetArray.used);
 
-	printf("Received data: ");
+	printf("Packet inside frame: ");
 	printHexArray(&packetArray);
 
 	freeArray(&receivedFrame);
