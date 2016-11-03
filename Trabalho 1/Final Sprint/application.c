@@ -99,7 +99,7 @@ int main(/*int argc, char** argv*/)
 	
 	printf("Started execution...\n");
 
-	llopen(&appL, &linkL, &oldtio);
+	llopen(&appL, &linkL, &oldtio, &stats);
 
 	printf("llopen() done with success!\n");
 
@@ -120,7 +120,7 @@ int main(/*int argc, char** argv*/)
     receiveFile();
   }
 
-	llclose(&appL, &oldtio);
+	llclose(&appL, &oldtio, &stats);
 
 	printf("llclose() done with success!\n");
 
