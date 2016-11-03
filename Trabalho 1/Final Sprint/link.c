@@ -785,7 +785,44 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 	printf("Begin to send frame #%d: ", linkL->sequenceNumber);
 	printHexArray(&stuffedArray);
 
-	send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+	int numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+
+	while(numOfWrittenChars == -1)
+	{
+		char input;
+		
+		input = 0;	
+
+		while ( (input = getchar()) != '\n' && input != EOF )
+		{
+			printf("Connection seems to have been lost. Do you want to (r)esend or (e)xit the program? ");
+			
+			fflush(stdin);
+			input = getchar();
+			fflush(stdin);
+
+			printf("\n\n");
+
+			if(input ==  'e' || input == 'E')
+			{
+				printf("Exiting...\n");
+				sleep(1);
+				exit(-1);
+			}
+
+			else if(input == 'r' || input == 'R')
+			{
+				printf("Sending again...\n");
+				sleep(1);
+				numOfWrittenChars = send_cycle(fd, stuffedArray.array, stuffedArray.used, feedback);
+			}
+
+			else
+			{
+				printf("Please write 'e' to exit or 'r' to resend.\n");
+			}
+		}
+	}
 
 	printf("Feedback: ");
 	printHexBuffer(feedback, 5);
@@ -843,6 +880,12 @@ int llwrite(int fd, unsigned char* packet, size_t packetLength, LinkLayer* linkL
 		}
 
 		i++;
+
+		if(i == 10)
+		{
+			printf("ERROR: Frame keeps getting rejected.\n");
+			returnValue = -10;
+		}	
 	}
 
     freeArray(&packetArray);
