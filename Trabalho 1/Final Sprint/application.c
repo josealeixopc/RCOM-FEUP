@@ -21,14 +21,14 @@ void displayStats()
 
   if(appL.status == TRANSMITTER)
   {
-    printf("Number of frames sent: %u\n", stats.framesSent);
+    printf("Number of frames sent and accepted: %u\n", stats.framesSent);
     printf("Number of timeouts: %u\n", stats.numTimeouts);
     printf("Number of RRs: %u\n", stats.numRR);
     printf("Number of REJs: %u\n", stats.numREJ);
   }
   else
   {
-    printf("Number of frames received: %u\n", stats.framesReceived);
+    printf("Number of frames received (including discarded ones): %u\n", stats.framesReceived);
     printf("Number of RRs: %u\n", stats.numRR);
     printf("Number of REJs: %u\n", stats.numREJ);
   }
@@ -38,7 +38,7 @@ void loadFile(char * filename);
 void receiveFile();
 
 void menu_cycle(){
-	
+
 	int status = -1;
 	while((status = startmenu()) == -1);
 	appL.status = (status == 1) ? TRANSMITTER : RECEIVER;
@@ -55,9 +55,9 @@ void menu_cycle(){
 	frame_size_default = status;
 
 	while((status = selectTimeout()) == -1);
-	//igualar var respetiva
+	linkL.timeout = status;
 	while((status = selectAttempts()) == -1);
-	//igualar var respetiva
+	linkL.numTransmissions = status;
 
 	char * nome = malloc(sizeof(char *) *  MAX_SIZE);
 	getfilename(nome);
@@ -92,11 +92,11 @@ int main(/*int argc, char** argv*/)
 */ // funcoes historicas #laig falta apenas fazer o timeout e o cenas
 
 	(void)signal(SIGALRM, alarmHandler);
-	
+
 	printf("Going to start menu .. \n");
 
 	menu_cycle();
-	
+
 	printf("Started execution...\n");
 
 	llopen(&appL, &linkL, &oldtio, &stats);
@@ -272,9 +272,9 @@ void loadFile(char * filename){
   while(1)
   {
     int value;
-    
+
     value =llwrite(appL.fileDescriptor, packageInit, 11 + strlen(filename), &linkL, &stats);
-  
+
     printf("%d\n", value);
 
     if(value == 0)
