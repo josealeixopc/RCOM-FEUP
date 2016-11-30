@@ -1,0 +1,41 @@
+SOCKETS
+
+Uma socket é uma representação abstrata de um "ponta" de uma rede. As sockets do POSIX são incluídas com o header <sys/socket.h>.
+
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
+FTP
+
+Primeiro ligamo-nos ao socket de controlo e só depois ao socket de data. São 2 sockets diferentes.
+
+Os client podem-se autenticar com um username e uma password ou passarem-se por anónimos.
+
+http://slacksite.com/other/ftp.html
+
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
+SIMPLE FTP CLIENT - http://stackoverflow.com/questions/13762673/how-to-program-an-ftp-client-in-c 
+
+At first, if you want to code an ftp client read really carefully this : RFC959.
+
+To help you for the beginning, here is few steps you need to know (for sure, i won't describe everything, but it will probably help you) :
+
+    1.Connect your socket (control socket) to your ftp server on the port 21.
+    2.You will receive on your socket a message from the ftp server (code : 220).
+    3.Then you send your login to the ftp server using the command USER and wait for confirmation (331)
+    4.Then send your password using the command PASS and wait for confirmation that you are logged on the server (230).
+    5.Now you can do some operation on the ftp.
+
+To send file you have to use the passive mode :
+
+    1.Send command PASV, you will get an answer that give you an IP address and a port (227), you will have to parse this message.
+    2.Connect a second socket (a data socket) wit the given configuration.
+    3.Use the command STOR on your control socket (to define the file you want to create on the server)
+    4.Send data through the data socket and when you are done, close data socket.
+
+Then leave your session using on the control socket the command QUIT.
+
+It's clearly easy to code a simple ftp client if you are used to "sockets concept".
+
+--------------------------------------------------------------------------------------------------------------------------------------------------
+
