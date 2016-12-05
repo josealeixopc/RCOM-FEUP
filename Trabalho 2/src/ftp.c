@@ -143,10 +143,28 @@ int ftpLogin(FTP_Socket* ftp, const char* user, const char* password) {
 
 int ftpCWD(FTP_Socket* ftp, const char* path) {
 
+    char cwdCommand[1024];
+
+    sprintf(cwd, "CWD %s\r\n", path); // change directory in server to correspond to the path o the file
+
+    if(ftpWrite(ftp, cwdCommand, strlen(cwdCommand)))
+    {
+        printf("ERROR: ftpWrite failed @ ftpCWD().\n");
+        return -1;
+    }
+
+    if(ftpRead(ftp, cwdCommand, sizeof(cwdCommand)))
+    {
+        printf("ERROR: Access to server denied when sending path @ ftpCWD().\n");
+        return -2;
+    }
+
 	return 0;
 }
 
 int ftpPasv(FTP_Socket* ftp) {
+
+    
 
 	return 0;
 }
