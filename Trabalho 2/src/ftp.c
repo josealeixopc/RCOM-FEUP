@@ -79,11 +79,64 @@ int ftpRead(FTP_Socket* ftp, char* str, size_t size)
 /* Make initial connection  */
 int ftpConnect(FTP_Socket* ftp, const char* ip, int port) {
 
+    int socket_fd;
+    char response[1024];
+
+    if((socket_fd = connectSocket(ip, port)) < 0)
+    {
+        printf("ERROR: Cannot establish connection to socket @ ftpConnect().\n");
+        return -1;
+    }
+
+    ftp->control_fd = socket_fd;    // the connected socket is the control socket
+    ftp->data_fd = 0;               // still to be defined
+
+    if(ftpRead(ftp, response, sizeof(response)))
+    {
+        printf("ERROR: ftpRead failed @ ftpConnect().\n");
+        return -2;
+    }
+
 	return 0;
 }
 
+/* Login with a given username and password. The server may then grant or deny access. */
 int ftpLogin(FTP_Socket* ftp, const char* user, const char* password) {
 	
+    char command[1024];
+
+    // Send user name
+    sprintf(command, "USER %s\r\n", user);  // FTP commands are terminated with CRLF -> CR == \r, LF == \n
+    if(ftpWrite(ftp, command, strlen(command)))
+    {
+        printf("ERROR: ftpWrite failed @ ftpLogin().\n");
+        return -1;
+    }
+
+
+    if(ftpRead(ftp, command, sizeof(command)))
+    {
+        printf("ERROR: Access to server denied when sending user name @ ftpLogin().\n");
+        return -2;
+    }
+
+    // Set command to 0s again
+    memset(command, 0, sizeof(command));
+
+    // Send passwords
+    sprintf(command, "PASS %s\r\n", password);  // FTP commands are terminated with CRLF -> CR == \r, LF == \n
+    if(ftpWrite(ftp, command, strlen(command)))
+    {
+        printf("ERROR: ftpWrite failed @ ftpLogin().\n");
+        return -3;
+    }
+
+
+    if(ftpRead(ftp, command, sizeof(command)))
+    {
+        printf("ERROR: Access to server denied when sending user name @ ftpLogin().\n");
+        return -4;
+    }
 
 	return 0;
 }
