@@ -5,7 +5,7 @@
 #include <regex.h>
 #include <errno.h>
 #include <unistd.h>
-
+#include  <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -28,7 +28,7 @@ int ftpRead(FTP_Socket* ftp, char* str, size_t size);
 int ftpConnect(FTP_Socket* ftp, const char* ip, int port);
 int ftpLogin(FTP_Socket* ftp, const char* user, const char* password);
 int ftpCWD(FTP_Socket* ftp, const char* path);
-int ftpPasv(FTP_Socket* ftp);
-int ftpRetr(FTP_Socket* ftp, const char* filename);
+int ftpPassive(FTP_Socket* ftp);
+int ftpRequest(FTP_Socket* ftp, const char* filename);
 int ftpDownload(FTP_Socket* ftp, const char* filename);
 int ftpDisconnect(FTP_Socket* ftp);

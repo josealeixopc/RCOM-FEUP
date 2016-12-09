@@ -31,8 +31,9 @@ Parsed_URL * parse_url(const char *url)
     purl->url = url;
     purl->scheme = NULL;
     purl->host = NULL;
-    purl->port = 0;
+    purl->port = 21;
     purl->path = NULL;
+    purl->file_name = NULL;
     purl->username = NULL;
     purl->password = NULL;
     purl->ip = NULL;
@@ -60,7 +61,7 @@ Parsed_URL * parse_url(const char *url)
     // len -> gives the number of bytes between the two pointers a.k.a. number of letters
 
     /* Check restrictions */
-    for ( i = 0; i < len; i++ ) {
+    for ( i = 0; i < len; i++ ) {//todo pode-se optimizar isto aqui, passa-se para baixo e evita-se fazer 2 ciclos
         if ( !_is_scheme_char(curstr[i]) ) {
             /* Invalid format */
             freeUrlStruct(purl);
@@ -69,7 +70,7 @@ Parsed_URL * parse_url(const char *url)
     }
     /* Copy the scheme to the storage */
     purl->scheme = malloc(sizeof(char) * (len + 1));
-    if ( NULL == purl->scheme ) {
+    if ( NULL == purl->scheme ) {//??????????? XDDDDD
         freeUrlStruct(purl);
         return NULL;
     }
@@ -203,7 +204,7 @@ Parsed_URL * parse_url(const char *url)
         }
         (void)strncpy(port, curstr, len);
         port[len] = '\0';
-        purl->port = atoi(port);
+      //  purl->port = atoi(port);
         curstr = tmpstr;
     }
 
@@ -224,7 +225,14 @@ Parsed_URL * parse_url(const char *url)
     while ( '\0' != *tmpstr && '#' != *tmpstr  && '?' != *tmpstr ) {
         tmpstr++;
     }
+    const char * temp_name = tmpstr;
+    while('/' != *temp_name){
+        temp_name--;
+    }
     len = tmpstr - curstr;
+    int name_l = tmpstr - temp_name - 1;
+
+    len = tmpstr - curstr - name_l;
     purl->path = malloc(sizeof(char) * (len + 1));
     if ( NULL == purl->path ) {
         freeUrlStruct(purl);
@@ -232,6 +240,16 @@ Parsed_URL * parse_url(const char *url)
     }
     (void)strncpy(purl->path, curstr, len);
     purl->path[len] = '\0';
+    curstr = temp_name + 1;
+
+    purl->file_name = malloc(sizeof(char) * (name_l + 1));
+    if ( NULL == purl->file_name ) {
+        printf("ERROR: @ file_name");
+        freeUrlStruct(purl);
+        return NULL;
+    }
+    (void)strncpy(purl->file_name, curstr, name_l);
+    purl->file_name[name_l] = '\0';
     curstr = tmpstr;
 
     if(hostToIP(purl) == -1){
@@ -242,24 +260,11 @@ Parsed_URL * parse_url(const char *url)
     return purl;
 }
 
-/*
-struct hostent {
-	char    *h_name;	Official name of the host. 
-    char    **h_aliases;	A NULL-terminated array of alternate names for the host. 
-	int     h_addrtype;	The type of address being returned; usually AF_INET.
-    int     h_length;	The length of the address in bytes.
-	char    **h_addr_list;	A zero-terminated array of network addresses for the host. 
-				
-                Host addresses are in Network Byte Order. 
-};
-
-#define h_addr h_addr_list[0]	The first address in h_addr_list. 
-*/
 
 int hostToIP(Parsed_URL *purl){
-    	struct hostent *h;      
+    	struct hostent *h;
 
-        if ((h=gethostbyname(purl->host)) == NULL) {  
+        if ((h=gethostbyname(purl->host)) == NULL) {
             herror("gethostbyname");
             return -1;
         }
@@ -284,6 +289,9 @@ void printParsedUrl(Parsed_URL *purl){
         if ( NULL != purl->path ) {
             printf("Path: %s\n", purl->path);
         }
+        if ( NULL != purl->file_name ) {
+            printf("File name: %s\n", purl->file_name);
+        }
         if ( NULL != purl->username ) {
             printf("Username: %s\n", purl->username);
         }
@@ -293,7 +301,7 @@ void printParsedUrl(Parsed_URL *purl){
         if ( NULL != purl->ip ) {
             printf("IP: %s\n", purl->ip);
         }
-    }    
+    }
 }
 
 /*
@@ -310,6 +318,9 @@ void freeUrlStruct(Parsed_URL *purl)
         }
         if ( NULL != purl->path ) {
             free(purl->path);
+        }
+        if ( NULL != purl->file_name ){
+            free(purl->file_name);
         }
         if ( NULL != purl->username ) {
             free(purl->username);
