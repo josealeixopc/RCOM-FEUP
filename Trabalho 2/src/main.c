@@ -31,7 +31,7 @@ int main(int argc, char** argv)
     // Start FTP connection
     if(purl->username == NULL){
         purl->username = "anonymous";
-        printf("Anon mode(4chin mod): Introduce email address pl0x:\n");
+        printf("Anonymous mode: Introduce email address:\n");
         char pass[69];
         fgets(pass, 69, stdin);
         purl->password = (char*) malloc(strlen(pass));
